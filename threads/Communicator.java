@@ -1,5 +1,7 @@
 package nachos.threads;
 
+import java.util.ArrayList;
+
 import nachos.machine.*;
 
 /**
@@ -17,6 +19,7 @@ public class Communicator {
     	condLock  = new Lock();
     	speakCond = new Condition2(condLock);
     	listenCond = new Condition2(condLock);
+    	msgList = new ArrayList<Integer>();
     }
 
     /**
@@ -34,7 +37,7 @@ public class Communicator {
     	
     	speakCond.sleep();
     	
-    	theWord = word;
+    	msgList.add(word);
     	
     	listenCond.wake();
     	
@@ -55,8 +58,9 @@ public class Communicator {
     	listenCond.sleep();
     	
     	condLock.release();
-    	
-    	return theWord;
+ 
+    	// Must have msg if reach here.
+    	return msgList.remove(0);
     }
     
     /**
@@ -93,19 +97,27 @@ public class Communicator {
     public static void selfTest() {
     	comm = new Communicator();
     	
-    	KThread t2 = new KThread(new TestListener()).setName("Comm thread 2 - listener");
+    	KThread t1 = new KThread(new TestSpeaker(123)).setName("Speaker 1");
+    	t1.fork();
+    	
+    	KThread t2 = new KThread(new TestSpeaker(456)).setName("Speaker 2");
     	t2.fork();
     	
-    	KThread t1 = new KThread(new TestSpeaker(123)).setName("Comm thread 1 - speaker");
-    	t1.fork();
+    	KThread t3 = new KThread(new TestListener()).setName("Listener 1");
+    	t3.fork();
+    	
+    	KThread t4 = new KThread(new TestListener()).setName("Listener 2");
+    	t4.fork();
     	
     	t1.join();
         t2.join();
+        t3.join();
+        t4.join();
     	
     	KThread.yield();
     }
     
-    private int theWord;
+    private ArrayList<Integer> msgList;
     private Condition2 speakCond;
     private Condition2 listenCond;
     private Lock condLock;
