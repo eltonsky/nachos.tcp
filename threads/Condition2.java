@@ -1,5 +1,7 @@
 package nachos.threads;
 
+import java.util.LinkedList;
+
 import nachos.machine.*;
 
 /**
@@ -35,6 +37,14 @@ public class Condition2 {
 
 	conditionLock.release();
 
+	boolean intStatus = Machine.interrupt().disable();
+	
+	Lib.debug('t', "### Put " + KThread.currentThread().toString() +" to sleep");
+	
+	waitThreadQueue.waitForAccess(KThread.currentThread());
+	KThread.sleep();
+	Machine.interrupt().restore(intStatus);
+	
 	conditionLock.acquire();
     }
 
@@ -44,6 +54,31 @@ public class Condition2 {
      */
     public void wake() {
 	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+	
+	boolean intStatus = Machine.interrupt().disable();
+
+	KThread thread = waitThreadQueue.nextThread();
+	
+	if(thread != null)
+		thread.ready();
+	else {
+		do {
+			Lib.debug('t', "### Condition2.wake() yielding");
+			
+			conditionLock.release();
+			
+			KThread.yield();
+			
+			conditionLock.acquire();
+			
+			thread = waitThreadQueue.nextThread();
+			
+		}while (thread == null);
+		
+		thread.ready();
+	}
+	
+	Machine.interrupt().restore(intStatus);
     }
 
     /**
@@ -52,7 +87,13 @@ public class Condition2 {
      */
     public void wakeAll() {
 	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+	
+	KThread thread = null;
+	while (!waitThreadQueue.isEmpty())
+	    wake();
     }
 
     private Lock conditionLock;
+    private ThreadQueue waitThreadQueue =
+    		ThreadedKernel.scheduler.newThreadQueue(false);
 }

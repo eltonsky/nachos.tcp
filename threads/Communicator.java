@@ -14,6 +14,9 @@ public class Communicator {
      * Allocate a new communicator.
      */
     public Communicator() {
+    	condLock  = new Lock();
+    	speakCond = new Condition2(condLock);
+    	listenCond = new Condition2(condLock);
     }
 
     /**
@@ -27,6 +30,15 @@ public class Communicator {
      * @param	word	the integer to transfer.
      */
     public void speak(int word) {
+    	condLock.acquire();
+    	
+    	speakCond.sleep();
+    	
+    	theWord = word;
+    	
+    	listenCond.wake();
+    	
+    	condLock.release();
     }
 
     /**
@@ -36,6 +48,65 @@ public class Communicator {
      * @return	the integer transferred.
      */    
     public int listen() {
-	return 0;
+    	condLock.acquire();
+    	
+    	speakCond.wake();
+    	
+    	listenCond.sleep();
+    	
+    	condLock.release();
+    	
+    	return theWord;
     }
+    
+    /**
+     */
+    private static Communicator comm;
+    
+    private static class TestSpeaker implements Runnable {
+    	TestSpeaker(int word) {
+		    this.word = word;
+		}
+		
+		public void run() {
+			Lib.debug('t', "### Speak " + word + " from " + KThread.currentThread().toString());
+			
+			comm.speak(word);
+		}
+	
+		private int word;
+    }
+    
+    private static class TestListener implements Runnable {
+    	TestListener() {
+		}
+		
+		public void run() {
+			Lib.debug('t', "### Try to listen from " + KThread.currentThread().toString());
+			
+		    int res = comm.listen();
+		    
+		    Lib.debug('t', "### listened " + res + " from " + KThread.currentThread().toString());
+		}
+    }
+    
+    public static void selfTest() {
+    	comm = new Communicator();
+    	
+    	KThread t2 = new KThread(new TestListener()).setName("Comm thread 2 - listener");
+    	t2.fork();
+    	
+    	KThread t1 = new KThread(new TestSpeaker(123)).setName("Comm thread 1 - speaker");
+    	t1.fork();
+    	
+    	t1.join();
+        t2.join();
+    	
+    	KThread.yield();
+    }
+    
+    private int theWord;
+    private Condition2 speakCond;
+    private Condition2 listenCond;
+    private Lock condLock;
 }

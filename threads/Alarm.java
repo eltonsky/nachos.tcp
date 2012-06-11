@@ -1,5 +1,8 @@
 package nachos.threads;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+
 import nachos.machine.*;
 
 /**
@@ -27,7 +30,25 @@ public class Alarm {
      * that should be run.
      */
     public void timerInterrupt() {
-	KThread.currentThread().yield();
+    	Lib.debug('t', "### TimerInterrupt at " + Machine.timer().getTime() + ", thread: " + KThread.currentThread().toString());
+    	
+    	boolean intStatus = Machine.interrupt().disable();
+    
+    	Iterator<ThreadTime> iter = waitAlarmThread.iterator();
+    	while(iter.hasNext()){
+    		ThreadTime tt = (ThreadTime)iter.next();
+    		
+    		if(Machine.timer().getTime() > tt.getWakeTime()) {
+    			
+    			Lib.debug('t', "### Put " + tt.getThread().toString() + " to ready queue.");
+    			
+    			tt.getThread().ready();
+    			iter.remove();
+    		}
+    	}
+    	
+    	Machine.interrupt().restore(intStatus);
+    	KThread.yield();
     }
 
     /**
@@ -45,9 +66,42 @@ public class Alarm {
      * @see	nachos.machine.Timer#getTime()
      */
     public void waitUntil(long x) {
-	// for now, cheat just to get something working (busy waiting is bad)
+	
 	long wakeTime = Machine.timer().getTime() + x;
-	while (wakeTime > Machine.timer().getTime())
-	    KThread.yield();
+	
+	boolean intStatus = Machine.interrupt().disable();
+
+	Lib.debug('t',"### Add " + KThread.currentThread().toString() + " to Alarm queue; wakeTime " + wakeTime);
+	waitAlarmThread.add(new ThreadTime(wakeTime,KThread.currentThread()));
+	KThread.sleep();
+	
+	Machine.interrupt().restore(intStatus);
+    }
+    
+    public static void selfTest() {
+    	Lib.debug('t', "Enter Alarm.selfTest");
+    	
+    	Alarm a1 = new Alarm();
+    	a1.waitUntil(1000);
+    }
+    
+    private ArrayList<ThreadTime> waitAlarmThread = new ArrayList<ThreadTime>();
+  
+    class ThreadTime {
+    	long ticks;
+    	KThread thread;
+    	
+    	ThreadTime(long ticks, KThread thread) {
+    		this.ticks = ticks;
+    		this.thread = thread;
+    	}
+    	
+    	public long getWakeTime() {
+    		return ticks;
+    	}
+    	
+    	public KThread getThread() {
+    		return thread;
+    	}
     }
 }

@@ -74,11 +74,17 @@ public class RoundRobinScheduler extends Scheduler {
 	 */
 	public void print() {
 	    Lib.assertTrue(Machine.interrupt().disabled());
+	    
+	    Lib.debug('t', "FifoQueue list:");
 
 	    for (Iterator i=waitQueue.iterator(); i.hasNext(); )
 		System.out.print((KThread) i.next() + " ");
 	}
 
+	public boolean isEmpty() {
+		return waitQueue.isEmpty();
+	}
+	
 	private LinkedList<KThread> waitQueue = new LinkedList<KThread>();
     }
 }

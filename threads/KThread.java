@@ -1,5 +1,7 @@
 package nachos.threads;
 
+import java.util.ArrayList;
+
 import nachos.machine.*;
 
 /**
@@ -152,6 +154,9 @@ public class KThread {
 
 	ready();
 	
+	// add to child list
+	currentThread.addChild(this);
+	
 	Machine.interrupt().restore(intStatus);
     }
 
@@ -159,6 +164,9 @@ public class KThread {
 	begin();
 	target.run();
 	finish();
+	
+	//delete from parent's children list
+	this.deleteFromParent();
     }
 
     private void begin() {
@@ -190,7 +198,6 @@ public class KThread {
 
 	Lib.assertTrue(toBeDestroyed == null);
 	toBeDestroyed = currentThread;
-
 
 	currentThread.status = statusFinished;
 	
@@ -282,13 +289,18 @@ public class KThread {
 		
 		Lib.assertTrue(!JoinCalled, "join is already called by other thread");
 	
+		// call all children to join
+		for(KThread kt : childrenThread){
+			kt.join();
+		}
+		
 		if (this.status != statusFinished) {
 			
 			System.out.println(toString() +" status: " + this.status);
 			
 			do {
 				yield();
-				System.out.println(toString() + " is waked up ...");
+				System.out.println(toString() + " : join is testing status again ...");
 			}while(this.status != statusFinished);
 		}
 	
@@ -427,7 +439,8 @@ public class KThread {
 	KThread t2 = new KThread(new PingTest(2)).setName("2nd forked thread");
 	t2.fork();
 	
-
+	currentThread.printChild();
+	
 	t1.join();
 	t2.join();
 	
@@ -460,6 +473,40 @@ public class KThread {
 
     // track if join is called or not.
     private boolean JoinCalled = false;
+    
+    private ArrayList<KThread> childrenThread = new ArrayList<KThread>();
+    private KThread parentThread = null;
+    
+    private int addChild(KThread kt) {
+    	if (kt != idleThread)
+    		childrenThread.add(kt);
+    	return 0;
+    }
+    
+    private int deleteChild(KThread kt) {
+    	childrenThread.remove(kt);
+    	return 0;
+    }
+    
+    private int deleteFromParent() {
+    	if(this.parentThread != null)
+    		this.parentThread.deleteChild(this);
+    	
+    	return 0;
+    }
+    
+    private int clearChild() {
+    	childrenThread.clear();
+    	return 0;
+    }
+    
+    private int printChild() {
+    	Lib.debug('t', "PRINTING CHILDREN THREAD");
+    	for(KThread kt : this.childrenThread) {
+    		Lib.debug('t', "this child: "+kt.toString());
+    	}
+    	return 0;
+    }
     
     /**
      * Unique identifer for this thread. Used to deterministically compare
