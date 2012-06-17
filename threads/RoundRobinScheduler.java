@@ -49,7 +49,7 @@ public class RoundRobinScheduler extends Scheduler {
 	 *	       	queue is
 	 *		empty.
 	 */
-	public KThread nextThread() {
+	public KThread nextThread() {	
 	    Lib.assertTrue(Machine.interrupt().disabled());
 		       
 	    if (waitQueue.isEmpty())
