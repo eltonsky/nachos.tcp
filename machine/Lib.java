@@ -123,7 +123,11 @@ public final class Lib {
      */
     public static void debug(char flag, String message) {
 	//if (test(flag))
-	    System.out.println(message);
+    	long ticks =0;
+    	if(Machine.timer() != null)
+    		ticks = Machine.timer().getTime();
+	    System.out.println(ticks+":"+(new Exception().getStackTrace()[1].getClassName()) 
+	    		+ "::" +(new Exception().getStackTrace()[1].getMethodName()) + "##  " + message);
     }
 
     // print stack trace

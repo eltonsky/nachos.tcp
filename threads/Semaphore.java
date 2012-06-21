@@ -37,19 +37,11 @@ public class Semaphore {
     public void P() {
 	boolean intStatus = Machine.interrupt().disable();
 
-	Lib.debug('t', "## Enter P " + KThread.currentThread().toString());
-	
 	if (value == 0) {
-		Lib.debug('t', "## IN P " + KThread.currentThread().toString() + " put to Q and Sleep.");
-		
 	    waitQueue.waitForAccess(KThread.currentThread());
 	    KThread.sleep();
-	    
-	    Lib.debug('t', "## IN P " + KThread.currentThread().toString() + " woke up from Sleep.");
 	}
 	else {
-		Lib.debug('t', "## IN P " + KThread.currentThread().toString() + " value--.");
-		
 	    value--;
 	}
 
@@ -63,17 +55,11 @@ public class Semaphore {
     public void V() {
 	boolean intStatus = Machine.interrupt().disable();
 
-	Lib.debug('t', "## Enter V " + KThread.currentThread().toString());
-	
 	KThread thread = waitQueue.nextThread();
 	if (thread != null) {
-		Lib.debug('t', "## IN V " + KThread.currentThread().toString() + " get next thread and put in ready Queue.");
-		
 	    thread.ready();
 	}
 	else {
-		Lib.debug('t', "## IN V " + KThread.currentThread().toString() + " value++.");
-		
 	    value++;
 	}
 	
@@ -104,7 +90,7 @@ public class Semaphore {
 	Semaphore ping = new Semaphore(0);
 	Semaphore pong = new Semaphore(0);
 
-	new KThread(new PingTest(ping, pong)).setName("PP").fork();
+	new KThread(new PingTest(ping, pong)).setName("ping").fork();
 
 	for (int i=0; i<10; i++) {
 	    ping.V();
