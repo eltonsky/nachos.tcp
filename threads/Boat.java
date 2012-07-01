@@ -32,14 +32,14 @@ public class Boat
     {
 		BoatGrader b = new BoatGrader();
 		
-		System.out.println("\n ***Testing Boats with only 2 children***");
-		begin(3, 4, b);
+		//System.out.println("\n ***Testing Boats with only 2 children***");
+		//begin(0, 2, b);
 	
 	//	System.out.println("\n ***Testing Boats with 2 children, 1 adult***");
 	//  	begin(1, 2, b);
 	
-	//  	System.out.println("\n ***Testing Boats with 3 children, 3 adults***");
-	//  	begin(3, 3, b);
+	  	System.out.println("\n ***Testing Boats with 4 children, 3 adults***");
+	  	begin(13, 14, b);
     }
 
     public static void begin( int adults, int children, BoatGrader b )
@@ -59,19 +59,7 @@ public class Boat
 		// Create threads here. See section 3.4 of the Nachos for Java
 		// Walkthrough linked from the projects page.
 	
-		Runnable Adult = new Runnable() {
-		    public void run() {
-	                AdultItinerary();
-	            }
-	        };
-	           
-	    for(int i=0;i<adults;i++){
-		    KThread t = new KThread(Adult);
-		    t.setName("Adult " + i);
-		    adultThreads.add(t);
-		    t.fork();
-	    }
-	
+
 	    Runnable Child = new Runnable() {
 		    public void run() {
 		    		LocateAt childAt = LocateAt.Oahu;
@@ -85,8 +73,23 @@ public class Boat
 		    childThreads.add(t);
 		    t.fork();
 	    }
+		
+		Runnable Adult = new Runnable() {
+		    public void run() {
+	                AdultItinerary();
+	            }
+	        };
+	           
+	    for(int i=0;i<adults;i++){
+		    KThread t = new KThread(Adult);
+		    t.setName("Adult " + i);
+		    adultThreads.add(t);
+		    t.fork();
+	    }
         
-	    //join
+	    // join
+	    // only joint children coz children thread must
+	    // finish after adults cross.
 	    for(KThread kt : childThreads){
 	    	kt.join();
 	    }
@@ -137,22 +140,26 @@ public class Boat
     	while(true){    		
     		printStat();
     		
-    		intStatus = Machine.interrupt().disable();
+    		//intStatus = Machine.interrupt().disable();
     		
     		if(childAt == LocateAt.Oahu && boatAt == LocateAt.Oahu) {
     			if(isBoatEmpty()){
     				
     				Lib.debug('t', KThread.currentThread().toString() + ", Boat is Empty.");
     				
-    	    		Boat.boatChildCapacity--;
-    	    		
 	    			// if can wait for the other child to come along
-	    			if(childrenOnSrc > 1)
+	    			if(childrenOnSrc > 1) {
+	    				Boat.boatChildCapacity--;
+	    				
 			    		while(Boat.boatChildCapacity != 0){
 			    			Lib.debug('t', "** is empty, sleep on childOnSrcCond.");
+			    			Boat.childOnSrcCond.wakeAll();
 			        		Boat.childOnSrcCond.sleep();
 			    		}
-		    	
+	    			} else {
+	    				Boat.boatChildCapacity--;
+	    			}
+
 		    		bg.ChildRowToMolokai();
 		    		
 		    		Boat.childrenOnDest++;
@@ -244,7 +251,7 @@ public class Boat
     			Boat.childOnDestCond.sleep();
     		}
     			
-    		Machine.interrupt().restore(intStatus);
+    		//Machine.interrupt().restore(intStatus);
     		
     		if(isFinish()) {
     			break;
@@ -264,7 +271,7 @@ public class Boat
     }
     
     public static boolean canTakeAdult(){
-    	return (isBoatEmpty() && (childrenOnDest > 0 || childrenOnSrc == 0) && boatAt == LocateAt.Oahu);
+    	return (isBoatEmpty() && (childrenOnDest > 0 || childrenOnSrc == 1) && boatAt == LocateAt.Oahu);
     }
     
     public static void printStat(){
