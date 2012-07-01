@@ -33,7 +33,7 @@ public class Boat
 		BoatGrader b = new BoatGrader();
 
 	  	System.out.println("\n ***Testing Boats with 4 children, 3 adults***");
-	  	begin(3, 4, b);
+	  	begin(23, 24, b);
     }
 
     public static void begin( int adults, int children, BoatGrader b )
@@ -89,6 +89,7 @@ public class Boat
 	    }
     }
 
+    
     static void AdultItinerary()
     {
 		lock.acquire();
@@ -110,7 +111,7 @@ public class Boat
 		
 		boatAt = LocateAt.Molokai;
 		
-		Boat.childOnDestCond.wakeAll();
+		Boat.childOnDestCond.wake();
 		
 		lock.release();
     }
@@ -119,8 +120,6 @@ public class Boat
     static void ChildItinerary(LocateAt childAt)
     {
     	lock.acquire();
-    	
-    	boolean intStatus;
     	
     	while(true){    		
     		printStat();
@@ -136,7 +135,7 @@ public class Boat
 	    				
 			    		while(Boat.boatChildCapacity != 0){
 			    			Lib.debug('t', "** is empty, sleep on childOnSrcCond.");
-			    			Boat.childOnSrcCond.wakeAll();
+			    			Boat.childOnSrcCond.wake();
 			        		Boat.childOnSrcCond.sleep();
 			    		}
 	    			} else {
@@ -153,6 +152,8 @@ public class Boat
 		    		
 		    		Boat.boatChildCapacity++;
 		    		
+		    		// use wakeAll, coz in the block blow, the passager 
+		    		// child waits on childOnDestCond, although it's on src.
 		    		Boat.childOnDestCond.wakeAll();
 		    		// NOTE: this simulation can only finish with 2 children
 		    		// as last; assume there are at least 2 children.
@@ -182,7 +183,7 @@ public class Boat
 		    			break;
 		    		}
 		    		
-		    		Boat.childOnDestCond.wakeAll();
+		    		Boat.childOnDestCond.wake();
 		    		
     	    	} else {
     	    		Lib.debug('t', "**is full, sleep on childOnSrcCond.");
@@ -205,8 +206,10 @@ public class Boat
 	    			childAt = LocateAt.Oahu;
 	    			boatAt = LocateAt.Oahu;
 	    			
-	    			Boat.adultOnSrcCond.wakeAll();
-	    			Boat.childOnSrcCond.wakeAll();
+	    			Boat.adultOnSrcCond.wake();
+	    			// use wake (not wakeAll), coz if adultOnSrc is 0
+	    			// only need to take 1 more child with current child to Dest
+	    			Boat.childOnSrcCond.wake();
 	    			
 	    			if(adultOnSrc > 0){
 	    				Lib.debug('t', "**is row back to src, sleep on childOnSrcCond.");
