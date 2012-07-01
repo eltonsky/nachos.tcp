@@ -50,7 +50,8 @@ public class Communicator {
     public int listen() {
     	condLock.acquire();
     	
-    	listenCond.sleep();
+    	if(msgList.isEmpty())
+    		listenCond.sleep();
     	
     	condLock.release();
  

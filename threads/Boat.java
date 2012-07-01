@@ -31,15 +31,9 @@ public class Boat
     public static void selfTest()
     {
 		BoatGrader b = new BoatGrader();
-		
-		//System.out.println("\n ***Testing Boats with only 2 children***");
-		//begin(0, 2, b);
-	
-	//	System.out.println("\n ***Testing Boats with 2 children, 1 adult***");
-	//  	begin(1, 2, b);
-	
+
 	  	System.out.println("\n ***Testing Boats with 4 children, 3 adults***");
-	  	begin(13, 14, b);
+	  	begin(3, 4, b);
     }
 
     public static void begin( int adults, int children, BoatGrader b )
@@ -116,10 +110,7 @@ public class Boat
 		
 		boatAt = LocateAt.Molokai;
 		
-		Lib.debug('t', "@@ Before Adult childOnDestCond.wakeAll()");
-		Boat.childOnDestCond.printWaitQueue();
 		Boat.childOnDestCond.wakeAll();
-		Lib.debug('t', "@@ After Adult childOnDestCond.wakeAll()");
 		
 		lock.release();
     }
@@ -127,20 +118,12 @@ public class Boat
     
     static void ChildItinerary(LocateAt childAt)
     {
-    	//Lib.debug('t', KThread.currentThread().toString() + ", Try to acquire lock.");
-    	
     	lock.acquire();
-    	
-    	//Lib.debug('t', KThread.currentThread().toString() + ", Acquired lock.");
-    	
-    	//Lib.debug('t', KThread.currentThread().toString() + ", childAt is " + childAt + ", isBoatEmpty() " + isBoatEmpty());
     	
     	boolean intStatus;
     	
     	while(true){    		
     		printStat();
-    		
-    		//intStatus = Machine.interrupt().disable();
     		
     		if(childAt == LocateAt.Oahu && boatAt == LocateAt.Oahu) {
     			if(isBoatEmpty()){
@@ -178,17 +161,11 @@ public class Boat
     	    		
     	    		Lib.debug('t', KThread.currentThread().toString() + ", Boat is not Empty.");
     	    		
-		    		//Boat.boatCond.sleep();
-		    		
     	    		Boat.boatChildCapacity--;
 		    		Boat.childOnSrcCond.wakeAll();
 		    		
-		    		Lib.debug('t', KThread.currentThread().toString() + ", Child going to sleep.");
-		    		
 		    		Lib.debug('t', "**is not empty, sleep on childOnDestCond.");
 		    		Boat.childOnDestCond.sleep();
-		    		
-		    		Lib.debug('t', KThread.currentThread().toString() + ", Child is waken up.");
 		    		
 		    		Boat.childrenOnDest++;
 		    		Boat.childrenOnSrc--;
@@ -251,7 +228,6 @@ public class Boat
     			Boat.childOnDestCond.sleep();
     		}
     			
-    		//Machine.interrupt().restore(intStatus);
     		
     		if(isFinish()) {
     			break;
