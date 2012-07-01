@@ -395,10 +395,7 @@ public class PriorityScheduler extends Scheduler {
 			
 			if (waitQueue.transferPriority) {
 				acquiredQueue.add(waitQueue);
-				
-				visitedPQ = new ArrayList<PriorityQueue>();
-				this.caculateDonation(waitQueue);
-				
+			
 				// coz this thread already get access, it's no
 				// longer waiting for this.
 				this.waitInQueue = null;

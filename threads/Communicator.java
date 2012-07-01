@@ -17,7 +17,6 @@ public class Communicator {
      */
     public Communicator() {
     	condLock  = new Lock();
-    	speakCond = new Condition2(condLock);
     	listenCond = new Condition2(condLock);
     	msgList = new ArrayList<Integer>();
     }
@@ -35,8 +34,6 @@ public class Communicator {
     public void speak(int word) {
     	condLock.acquire();
     	
-    	speakCond.sleep();
-    	
     	msgList.add(word);
     	
     	listenCond.wake();
@@ -52,8 +49,6 @@ public class Communicator {
      */    
     public int listen() {
     	condLock.acquire();
-    	
-    	speakCond.wake();
     	
     	listenCond.sleep();
     	

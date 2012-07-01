@@ -9,6 +9,8 @@ import java.lang.reflect.Modifier;
 import java.security.PrivilegedAction;
 import java.util.Random;
 
+import nachos.threads.KThread;
+
 /**
  * Thrown when an assertion fails.
  */
@@ -126,8 +128,11 @@ public final class Lib {
     	long ticks =0;
     	if(Machine.timer() != null)
     		ticks = Machine.timer().getTime();
-	    System.out.println(ticks+":"+(new Exception().getStackTrace()[1].getClassName()) 
-	    		+ "::" +(new Exception().getStackTrace()[1].getMethodName()) + "##  " + message);
+    	KThread currThread = KThread.getCurrentThread();
+    	String threadName = (currThread==null)?"":currThread.toString();
+    	
+	    System.out.print(ticks+":"+threadName+"::"+(new Exception().getStackTrace()[1].getClassName()) 
+	    		+ "::" +(new Exception().getStackTrace()[1].getMethodName()) + "##  " + message+"\n");
     }
 
     // print stack trace

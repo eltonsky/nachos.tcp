@@ -3,6 +3,7 @@ package nachos.threads;
 import java.util.LinkedList;
 
 import nachos.machine.*;
+import nachos.threads.PriorityScheduler.PriorityQueue;
 
 /**
  * An implementation of condition variables that disables interrupt()s for
@@ -59,8 +60,12 @@ public class Condition2 {
 
 	KThread thread = waitThreadQueue.nextThread();
 	
-	if(thread != null)
+	Lib.debug('t', "thread from nextThread is " + ((thread==null)?"null":"not null"));
+	
+	if(thread != null) {
 		thread.ready();
+		Lib.debug('t', "### Condition2.wake(), put " + thread.toString() + " to ready.");
+	}
 	else {
 		do {
 			Lib.debug('t', "### Condition2.wake() yielding");
@@ -89,8 +94,20 @@ public class Condition2 {
 	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
 	
 	KThread thread = null;
+	
+	Lib.debug('t', "waitThreadQueue.isEmpty() " + waitThreadQueue.isEmpty());
+	
 	while (!waitThreadQueue.isEmpty())
 	    wake();
+    }
+    
+    // only works for PQ 
+    public void printWaitQueue(){
+    	boolean intStatus = Machine.interrupt().disable();
+    	
+    	((PriorityQueue)waitThreadQueue).print();
+    	
+    	Machine.interrupt().restore(intStatus);
     }
 
     private Lock conditionLock;

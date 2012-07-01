@@ -30,6 +30,14 @@ import nachos.machine.*;
  * </pre></blockquote>
  */
 public class KThread {
+	
+	/**
+	 * Used only for Lib.debug
+	 */
+	public static KThread getCurrentThread() {
+		return currentThread;
+    }
+	
     /**
      * Get the current thread.
      *
