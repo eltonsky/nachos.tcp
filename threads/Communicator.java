@@ -17,6 +17,7 @@ public class Communicator {
      */
     public Communicator() {
     	condLock  = new Lock();
+    	speakCond = new Condition2(condLock);
     	listenCond = new Condition2(condLock);
     	msgList = new ArrayList<Integer>();
     }
@@ -32,13 +33,23 @@ public class Communicator {
      * @param	word	the integer to transfer.
      */
     public void speak(int word) {
+    	boolean intStatus = Machine.interrupt().disable();
+    	
     	condLock.acquire();
+    	
+    	if(listenCount == 0){
+    		speakCond.sleep();
+    	}
+    		
+    	listenCount--;
     	
     	msgList.add(word);
     	
     	listenCond.wake();
     	
     	condLock.release();
+    	
+    	Machine.interrupt().restore(intStatus);
     }
 
     /**
@@ -48,12 +59,20 @@ public class Communicator {
      * @return	the integer transferred.
      */    
     public int listen() {
+    	boolean intStatus = Machine.interrupt().disable();
+    	
     	condLock.acquire();
+    	
+    	listenCount++;
+    	
+    	speakCond.wake();
     	
     	if(msgList.isEmpty())
     		listenCond.sleep();
     	
     	condLock.release();
+    	
+    	Machine.interrupt().restore(intStatus);
  
     	// Must have msg if reach here.
     	return msgList.remove(0);
@@ -92,6 +111,22 @@ public class Communicator {
     
     public static void selfTest() {
     	comm = new Communicator();
+
+    	KThread t6 = new KThread(new TestListener()).setName("Listener 1");
+    	t6.fork();
+    	
+    	KThread t7 = new KThread(new TestListener()).setName("Listener 2");
+    	t7.fork();
+    	
+    	KThread t8 = new KThread(new TestListener()).setName("Listener 3");
+    	t8.fork();
+    	
+    	KThread t9 = new KThread(new TestListener()).setName("Listener 4");
+    	t9.fork();
+    	
+    	KThread t10 = new KThread(new TestListener()).setName("Listener 5");
+    	t10.fork();
+    	
     	
     	KThread t1 = new KThread(new TestSpeaker(123)).setName("Speaker 1");
     	t1.fork();
@@ -108,21 +143,7 @@ public class Communicator {
     	KThread t5 = new KThread(new TestSpeaker(131415)).setName("Speaker 5");
     	t5.fork();
     	
-    	
-    	KThread t6 = new KThread(new TestListener()).setName("Listener 1");
-    	t6.fork();
-    	
-    	KThread t7 = new KThread(new TestListener()).setName("Listener 2");
-    	t7.fork();
-    	
-    	KThread t8 = new KThread(new TestListener()).setName("Listener 3");
-    	t8.fork();
-    	
-    	KThread t9 = new KThread(new TestListener()).setName("Listener 4");
-    	t9.fork();
-    	
-    	KThread t10 = new KThread(new TestListener()).setName("Listener 5");
-    	t10.fork();
+
     	
     	
     	t1.join();
@@ -140,6 +161,7 @@ public class Communicator {
     }
     
     private ArrayList<Integer> msgList;
+    private int listenCount = 0;
     private Condition2 speakCond;
     private Condition2 listenCond;
     private Lock condLock;

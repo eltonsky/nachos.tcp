@@ -68,22 +68,6 @@ public class Condition2 {
 		thread.ready();
 		Lib.debug('t', "### Condition2.wake(), put " + thread.toString() + " to ready.");
 	}
-	else {
-		do {
-			Lib.debug('t', "### Condition2.wake() yielding");
-			
-			conditionLock.release();
-			
-			KThread.yield();
-			
-			conditionLock.acquire();
-			
-			thread = waitThreadQueue.nextThread();
-			
-		}while (thread == null);
-		
-		thread.ready();
-	}
 	
 	Machine.interrupt().restore(intStatus);
     }
