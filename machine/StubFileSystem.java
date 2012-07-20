@@ -8,6 +8,7 @@ import nachos.threads.*;
 import java.io.File;
 import java.io.RandomAccessFile;
 import java.io.IOException;
+import java.util.ArrayList;
 
 /**
  * This class implements a file system that redirects all requests to the host
@@ -31,7 +32,7 @@ public class StubFileSystem implements FileSystem {
 	    return null;
 	
 	delay();
-	    
+	
 	try {
 	    return new StubOpenFile(name, truncate);
 	}
@@ -81,10 +82,18 @@ public class StubFileSystem implements FileSystem {
 	    if (openCount == maxOpenFiles)
 		throw new IOException();
 
+	    Lib.debug('t', "before getRandomAccessFile");
+	    
 	    privilege.doPrivileged(new Runnable() {
-		public void run() { getRandomAccessFile(f, truncate); }
+		public void run() {
+			
+			Lib.debug('t', "run getRandomAccessFile");
+			
+			getRandomAccessFile(f, truncate); }
 	    });
 
+	    Lib.debug('t', "after getRandomAccessFile");
+	    
 	    if (file == null)
 		throw new IOException();
 
@@ -94,13 +103,16 @@ public class StubFileSystem implements FileSystem {
 
 	private void getRandomAccessFile(File f, boolean truncate) {
 	    try {
-		if (!truncate && !f.exists())
-		    return;
-
-		file = new RandomAccessFile(f, "rw");
-
-		if (truncate)
-		    file.setLength(0);
+	    	
+	    	Lib.debug('a', "truncate is " + truncate + " f.exists() "+f.exists() + " file name "+ f.getName());
+	    	
+			if (!truncate && !f.exists())
+			    return;
+	
+			file = new RandomAccessFile(f, "rw");
+	
+			if (truncate)
+			    file.setLength(0);  
 	    }
 	    catch (IOException e) {
 	    }
@@ -213,4 +225,9 @@ public class StubFileSystem implements FileSystem {
 	allow('.');
 	allow(',');
     }
+    
 }
+
+
+
+

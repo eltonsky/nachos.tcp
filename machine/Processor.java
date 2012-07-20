@@ -85,24 +85,26 @@ public final class Processor {
      * Start executing instructions at the current PC. Never returns.
      */
     public void run() {
-	Lib.debug(dbgProcessor, "starting program in current thread");
-
-	registers[regNextPC] = registers[regPC] + 4;
-
-	Machine.autoGrader().runProcessor(privilege);
-
-	Instruction inst = new Instruction();
+		Lib.debug(dbgProcessor, "starting program in current thread");
 	
-	while (true) {
-	    try {
-		inst.run();
-	    }
-	    catch (MipsException e) {
-		e.handle();
-	    }
-
-	    privilege.interrupt.tick(false);
-	}
+		registers[regNextPC] = registers[regPC] + 4;
+	
+		Machine.autoGrader().runProcessor(privilege);
+	
+		Instruction inst = new Instruction();
+		
+		while (true) {
+		    try {
+		    	inst.run();
+		    }
+		    catch (MipsException e) {
+		    	Lib.debug(dbgProcessor, "get execpteion ...");
+		    	
+		    	e.handle();
+		    }
+	
+		    privilege.interrupt.tick(false);
+		}
     }
 
     /**
@@ -610,10 +612,15 @@ public final class Processor {
     private class Instruction {
 	public void run() throws MipsException {
 	    // hopefully this looks familiar to 152 students?
+		Lib.debug(dbgProcessor, "before fetch");
 	    fetch();
+	    Lib.debug(dbgProcessor, "before decode");
 	    decode();
+	    Lib.debug(dbgProcessor, "before exe");
 	    execute();
+	    Lib.debug(dbgProcessor, "before writeback");
 	    writeBack();
+	    Lib.debug(dbgProcessor, "after writeback");
 	}	
 
 	private boolean test(int flag) {
@@ -718,7 +725,7 @@ public final class Processor {
 		src2 &= 0xFFFFFFFFL;
 	    }	    
 
-	    if (Lib.test(dbgDisassemble) || Lib.test(dbgFullDisassemble))
+	    //if (Lib.test(dbgDisassemble) || Lib.test(dbgFullDisassemble))
 		print();	    
 	}
 
@@ -848,6 +855,8 @@ public final class Processor {
 	private void execute() throws MipsException {
 	    int value;
 	    int preserved;
+	    
+	    Lib.debug(dbgProcessor, "operation " + operation);
 	    
 	    switch (operation) {
 	    case Mips.ADD:

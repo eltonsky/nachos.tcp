@@ -5,6 +5,9 @@ import nachos.threads.*;
 import nachos.userprog.*;
 
 import java.io.EOFException;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Encapsulates the state of a user process that is not contained in its
@@ -23,11 +26,24 @@ public class UserProcess {
      * Allocate a new process.
      */
     public UserProcess() {
-	int numPhysPages = Machine.processor().getNumPhysPages();
-	pageTable = new TranslationEntry[numPhysPages];
-	for (int i=0; i<numPhysPages; i++)
-	    pageTable[i] = new TranslationEntry(i,i, true,false,false,false);
+    	
+    	//page table
+		int numPhysPages = Machine.processor().getNumPhysPages();
+		pageTable = new TranslationEntry[numPhysPages];
+		for (int i=0; i<numPhysPages; i++)
+		    pageTable[i] = new TranslationEntry(i,i, true,false,false,false);
+		
+		//pid
+		setProcessID();
+		
+		//fd table
+		fd_table = new FDTable();
+		//add stdin, stdout
+		fd_table.addFile(UserKernel.console.openForReading());
+		fd_table.addFile(UserKernel.console.openForWriting());
     }
+    
+    
     
     /**
      * Allocate and return a new process of the correct class. The class name
@@ -72,6 +88,14 @@ public class UserProcess {
 	Machine.processor().setPageTable(pageTable);
     }
 
+    public void printMemoryString(int a0) {
+		byte[] bytes = new byte[1024];
+	
+		int bytesRead = readVirtualMemory(a0, bytes);
+	
+		Lib.debug(dbgProcess, "Machine Mem :" + new String(bytes,0,bytesRead));
+    }
+    
     /**
      * Read a null-terminated string from this process's virtual memory. Read
      * at most <tt>maxLength + 1</tt> bytes from the specified address, search
@@ -95,7 +119,7 @@ public class UserProcess {
 
 	for (int length=0; length<bytesRead; length++) {
 	    if (bytes[length] == 0)
-		return new String(bytes, 0, length);
+	    	return new String(bytes, 0, length);
 	}
 
 	return null;
@@ -340,24 +364,199 @@ public class UserProcess {
      */
     private int handleHalt() {
 
-	Machine.halt();
-	
-	Lib.assertNotReached("Machine.halt() did not halt machine!");
-	return 0;
+    	// only main process is allowed to call halt.
+    	if(pid != 0){
+    		Lib.debug('t', "current pid " + pid + " is not allowed to call halt().");
+    		return 0;
+    	}
+    	
+		Machine.halt();
+		
+		Lib.assertNotReached("Machine.halt() did not halt machine!");
+		return 0;
     }
 
+    /**
+     * Open a new file, creating it if it does not exist.
+     * @param a0 the virtual memory address of the filename string.
+     * @return the new file descriptor on success, or -1 on failure.
+     */
+    private int handleCreate(int a0){
+    	printMemoryString(a0);
+    	
+        String filename = readVirtualMemoryString(a0, 256);
+        
+        Lib.debug(dbgProcess, "filename is " + filename + " a0 is " + a0);
+        
+        if(filename == null){
+        	return -1;
+        }else{
+            OpenFile createdFile = UserKernel.fileSystem.open(filename, true);
+            if(createdFile == null){
+            	return -1;
+            }
+
+            int fd = fd_table.addFile(createdFile);
+            
+            Lib.debug(dbgProcess, "fd " + fd);
+            
+            return fd;
+        }
+    }
+    
+    /**
+     * Opens a file at a given location in the file system, only if
+     * the file is already existing.
+     * @param a0 a memory address of a string containing the path to
+     * the file to open.
+     * @return the file descriptor of the newly opened file, or -1 if
+     * an error occurred.
+     */
+    protected int handleOpen(int a0){
+	    String filename = readVirtualMemoryString(a0, 256);
+	    if(filename == null){
+	    	return -1;
+	    }else{
+            OpenFile openedFile = UserKernel.fileSystem.open(filename, false);
+            if(openedFile == null){
+            	return -1;
+            }
+
+            int fd = fd_table.addFile(openedFile);
+            return fd;
+	    }
+    }
+    
+    /**
+     * Reads data from a file descriptor into a buffer until a given
+     * amount of bytes have been read.
+     * @param a0 the file descriptor to read from.
+     * @param a1 a memory address of a buffer to write the data to.
+     * @param a2 the maximum number of bytes to read from the descriptor.
+     * @return the number of bytes read from the descriptor, or -1 if an error
+     * occurred.
+     */
+    protected int handleRead(int a0, int a1, int a2){
+        if(a0 >= 0 && fd_table.getFile(a0) != null
+        		&& a1 >=0 && a2 > 0){
+            OpenFile file = fd_table.getFile(a0);
+
+            byte[] data = new byte[a2];
+            int bytesRead = file.read(data, 0, a2);
+
+            if(bytesRead < 0){
+                return -1;
+            }else if(bytesRead == 0){
+                return 0;
+            }
+
+            byte[] dataToWrite = new byte[bytesRead];
+            System.arraycopy(data, 0, dataToWrite, 0, bytesRead);
+
+            int bytesWritten = writeVirtualMemory(a1, dataToWrite);
+
+            if(bytesWritten < 0){
+                return -1;
+            }
+
+            return bytesRead;
+        }else{
+        	Lib.debug(dbgProcess, "a0 "+ a0 +", a1" + a1 + ", a2 "+ a2 + "");
+        	
+            return -1;
+        }
+    }
+    
+    
+    /**
+     * Writes data from a file descriptor into a buffer until a given
+     * amount of bytes have been written.
+     * @param a0 the file descriptor to write to.
+     * @param a1 a memory address of a buffer to read data from.
+     * @param a2 the maximum number of bytes to write to the descriptor.
+     * @return the number of bytes write to the descriptor, or -1 if an error
+     * occurred.
+     */
+    protected int handleWrite(int a0, int a1, int a2){
+    	Lib.debug(dbgProcess, "a0 " + a0 + " a1 " +a1+" a2 " + a2 + " fd_table.getFile(a0) " + fd_table.getFile(a0));
+    	
+        if(a0 >= 0 && fd_table.getFile(a0) != null
+        		&& a1 >=0 && a2 > 0){
+        	
+        	byte[] dataToRead = new byte[a2];
+        	int bytesRead = readVirtualMemory(a1,dataToRead);
+        	
+        	if(bytesRead < 0){
+                return -1;
+            }else if(bytesRead == 0){
+                return 0;
+            }
+        	
+            OpenFile file = fd_table.getFile(a0);
+
+            int bytesWritten = file.write(dataToRead, 0, bytesRead);
+
+            if(bytesWritten < 0){
+                return -1;
+            }
+
+            return bytesWritten;
+        }else{
+            return -1;
+        }
+    }    
+    
+    /**
+     * Closes an open file descriptor. Close will return an error if
+     * there is no open file descriptor at the given index.
+     * @param a0 the file descriptor to close
+     * @return 0 on success, -1 on failure.
+     */
+    protected int handleClose(int a0){
+    	Lib.debug(dbgProcess, "a0 " + a0);
+    	
+        if(a0 < fd_table.size() && a0 >= 0 && fd_table.getFile(a0) != null){
+        	fd_table.getFile(a0).close();
+        	fd_table.deleteFile(a0);
+            return 0;
+        }
+
+        return -1;
+    }
+    
+    /**
+     * remove a hard link for specified file name.
+     * @param a0
+     * @return
+     */
+    private int handleUnlink(int a0){
+        String filename = readVirtualMemoryString(a0, 256);
+        if(filename == null){
+                return -1;
+        }else{
+            if(!UserKernel.fileSystem.remove(filename)){
+                    return -1;
+            }else{
+                    return 0;
+            }
+        }
+	}
+    
+    private int handleExit() {
+    	return 0;
+    }
 
     private static final int
         syscallHalt = 0,
-	syscallExit = 1,
-	syscallExec = 2,
-	syscallJoin = 3,
-	syscallCreate = 4,
-	syscallOpen = 5,
-	syscallRead = 6,
-	syscallWrite = 7,
-	syscallClose = 8,
-	syscallUnlink = 9;
+		syscallExit = 1,
+		syscallExec = 2,
+		syscallJoin = 3,
+		syscallCreate = 4,
+		syscallOpen = 5,
+		syscallRead = 6,
+		syscallWrite = 7,
+		syscallClose = 8,
+		syscallUnlink = 9;
 
     /**
      * Handle a syscall exception. Called by <tt>handleException()</tt>. The
@@ -388,16 +587,33 @@ public class UserProcess {
      * @return	the value to be returned to the user.
      */
     public int handleSyscall(int syscall, int a0, int a1, int a2, int a3) {
-	switch (syscall) {
-	case syscallHalt:
-	    return handleHalt();
-
-
-	default:
-	    Lib.debug(dbgProcess, "Unknown syscall " + syscall);
-	    Lib.assertNotReached("Unknown system call!");
-	}
-	return 0;
+    	
+    	Lib.debug(dbgProcess, "Enter ... syacall is " + syscall);
+    	
+		switch (syscall) {
+		case syscallHalt:
+		    return handleHalt();
+		case syscallExit:
+			return handleExit();
+		case syscallCreate:
+			return handleCreate(a0);
+		case syscallOpen:
+			return handleOpen(a0);
+		case syscallRead:
+			return handleRead(a0,a1,a2);
+		case syscallWrite:
+			return handleWrite(a0,a1,a2);
+		case syscallUnlink:
+			return handleUnlink(a0);
+		case syscallClose:
+			return handleClose(a0);
+	
+			
+		default:
+		    Lib.debug(dbgProcess, "Unknown syscall " + syscall);
+		    Lib.assertNotReached("Unknown system call!");
+		}
+		return 0;
     }
 
     /**
@@ -430,6 +646,14 @@ public class UserProcess {
 	}
     }
 
+    // assign new process id
+    private void setProcessID(){
+		pidLock.acquire();
+		pid = currentPID;
+		currentPID = (currentPID + 1)%MAX_PROCESS_NUM;
+		pidLock.release();
+    }
+
     /** The program being run by this process. */
     protected Coff coff;
 
@@ -441,9 +665,65 @@ public class UserProcess {
     /** The number of pages in the program's stack. */
     protected final int stackPages = 8;
     
+    private FDTable fd_table;
     private int initialPC, initialSP;
     private int argc, argv;
-	
+    private int pid;
+    
+    private static final int MAX_PROCESS_NUM = 32768;
+    private static final int maxOpenFiles = 16;
     private static final int pageSize = Processor.pageSize;
     private static final char dbgProcess = 'a';
+    
+    public static int currentPID = 0;
+    public static int runningProcesses = 0;
+    public static Lock pidLock = new Lock();
+    
+    private class FDTable {
+    	OpenFile[] fdFile = new OpenFile[maxOpenFiles];
+    	int lastIndex = 0;
+    	int length = 0;
+    	
+    	public int addFile(OpenFile file){    		
+    		int newIndex = getAvailableIndex();
+    		if(newIndex == - 1)
+    			return -1;
+    		
+    		fdFile[newIndex] = file;
+    	
+    		length++;
+    		
+    		return newIndex;
+    	}
+    	
+    	public int deleteFile(int fd){
+    		if(fdFile[fd] == null)
+    			return -1;
+    		
+    		fdFile[fd] = null;
+    		length--;
+    		
+    		return 0;
+    	}
+    	
+    	public OpenFile getFile(int fd){    		
+    		return fdFile[fd];
+    	}
+    	
+    	public int size(){
+    		return length;
+    	}
+    	
+    	private int getAvailableIndex() {
+    		for(int i = 0; i < maxOpenFiles; i++){
+    			if(fdFile[(lastIndex+i)%maxOpenFiles] == null){
+    				lastIndex = (lastIndex+i)%maxOpenFiles;	
+    				return lastIndex;
+    			}
+    		}
+    		
+    		return -1;
+    	}
+    }
+  
 }

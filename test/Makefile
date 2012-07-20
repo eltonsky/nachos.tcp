@@ -6,14 +6,15 @@
 #	this makefile. If you are using an instructional machine, this should
 #	be automatic. However, if you are not using an instructional machine,
 #	you need to point ARCHDIR at the cross-compiler directory, e.g.
-#		setenv ARCHDIR ../mips-x86.win32-xgcc
+#	setenv ARCHDIR /data/mips-x86.linux-xgcc
+
 
 # you need to point to the right executables
 GCCDIR = $(ARCHDIR)/mips-
 
 ASFLAGS = -mips1
 CPPFLAGS =
-CFLAGS = -O2 -B$(GCCDIR) -G 0 -Wa,-mips1 -nostdlib -ffreestanding
+CFLAGS = -O2 -B $(ARCHDIR) -G 0 -Wa,-mips1 -nostdlib -ffreestanding
 LDFLAGS = -s -T script -N -warn-common -warn-constructors -warn-multiple-gp
 
 CC = $(GCCDIR)gcc
@@ -30,7 +31,7 @@ STDLIB_O = start.o stdio.o stdlib.o
 LIB = assert atoi printf readline stdio strncmp strcat strcmp strcpy strlen memcpy memset
 NLIB = libnachos.a
 
-TARGETS = halt sh matmult sort echo cat cp mv rm #chat chatserver
+TARGETS = halt sh matmult sort echo cat cp mv rm creat write close#chat chatserver
 
 .SECONDARY: $(patsubst %.c,%.o,$(wildcard *.c))
 
