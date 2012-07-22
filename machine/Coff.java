@@ -132,9 +132,9 @@ public class Coff {
      * loader.
      */
     public void close() {
-	file.close();
-
-	sections = null;
+		file.close();
+	
+		sections = null;
     }
 
     private OpenFile file;

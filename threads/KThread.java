@@ -394,22 +394,20 @@ public class KThread {
      * Prepare this thread to be run. Set <tt>status</tt> to
      * <tt>statusRunning</tt> and check <tt>toBeDestroyed</tt>.
      */
-    protected void restoreState() {
-	Lib.debug(dbgThread, "Running thread: " + currentThread.toString());
+    protected void restoreState() {		
+		Lib.assertTrue(Machine.interrupt().disabled());
+		Lib.assertTrue(this == currentThread);
+		Lib.assertTrue(tcb == TCB.currentTCB());
 	
-	Lib.assertTrue(Machine.interrupt().disabled());
-	Lib.assertTrue(this == currentThread);
-	Lib.assertTrue(tcb == TCB.currentTCB());
-
-	Machine.autoGrader().runningThread(this);
+		Machine.autoGrader().runningThread(this);
+		
+		status = statusRunning;
 	
-	status = statusRunning;
-
-	if (toBeDestroyed != null) {
-	    toBeDestroyed.tcb.destroy();
-	    toBeDestroyed.tcb = null;
-	    toBeDestroyed = null;
-	}
+		if (toBeDestroyed != null) {
+		    toBeDestroyed.tcb.destroy();
+		    toBeDestroyed.tcb = null;
+		    toBeDestroyed = null;
+		}
     }
 
     /**
@@ -417,8 +415,8 @@ public class KThread {
      * need to do anything here.
      */
     protected void saveState() {
-	Lib.assertTrue(Machine.interrupt().disabled());
-	Lib.assertTrue(this == currentThread);
+		Lib.assertTrue(Machine.interrupt().disabled());
+		Lib.assertTrue(this == currentThread);
     }
 
     private static class PingTest implements Runnable {

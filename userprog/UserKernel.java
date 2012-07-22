@@ -1,5 +1,10 @@
 package nachos.userprog;
 
+import java.util.SortedMap;
+import java.util.SortedSet;
+import java.util.TreeMap;
+import java.util.TreeSet;
+
 import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
@@ -12,7 +17,12 @@ public class UserKernel extends ThreadedKernel {
      * Allocate a new user kernel.
      */
     public UserKernel() {
-	super();
+    	super();
+    	
+    	freePageSet = new TreeSet<Integer>();
+    	for(int i =0; i<Machine.processor().getNumPhysPages();i++){
+    		freePageSet.add(i);
+    	}
     }
 
     /**
@@ -20,13 +30,15 @@ public class UserKernel extends ThreadedKernel {
      * processor's exception handler.
      */
     public void initialize(String[] args) {
-	super.initialize(args);
-
-	console = new SynchConsole(Machine.console());
+		super.initialize(args);
 	
-	Machine.processor().setExceptionHandler(new Runnable() {
-		public void run() { exceptionHandler(); }
-	    });
+		console = new SynchConsole(Machine.console());
+		
+		Machine.processor().setExceptionHandler(new Runnable() {
+			public void run() { exceptionHandler(); }
+		});
+
+    	kPageLock = new Lock();
     }
 
     /**
@@ -77,11 +89,11 @@ public class UserKernel extends ThreadedKernel {
      * that caused the exception.
      */
     public void exceptionHandler() {
-	Lib.assertTrue(KThread.currentThread() instanceof UThread);
-
-	UserProcess process = ((UThread) KThread.currentThread()).process;
-	int cause = Machine.processor().readRegister(Processor.regCause);
-	process.handleException(cause);
+		Lib.assertTrue(KThread.currentThread() instanceof UThread);
+	
+		UserProcess process = ((UThread) KThread.currentThread()).process;
+		int cause = Machine.processor().readRegister(Processor.regCause);
+		process.handleException(cause);
     }
 
     /**
@@ -113,9 +125,52 @@ public class UserKernel extends ThreadedKernel {
     	super.terminate();
     }
 
+    public static int getFreePageNum(){
+    	int size = -1;
+    	
+    	kPageLock.acquire();
+    	
+    	size = freePageSet.size();
+    	
+    	kPageLock.release();
+    	
+    	return size;
+    }
+    
+    public static int allocatePage(){
+    	int firstFreePage = -1;
+    	
+    	kPageLock.acquire();
+    	
+    	if(freePageSet.size() > 0){
+    		firstFreePage = (Integer)freePageSet.first();
+    		if(!freePageSet.remove(firstFreePage))
+    			firstFreePage = -1;
+    	}
+    	
+    	kPageLock.release();
+    	
+    	return firstFreePage;
+    }
+    
+    public static  boolean freePage(int ppn){
+    	kPageLock.acquire();
+    	
+    	if(ppn >= 0 && freePageSet.add((Integer)ppn)) {
+    		kPageLock.release();
+    		return true;
+    	}
+    	
+    	kPageLock.release();
+    	return false;
+    }
+    
     /** Globally accessible reference to the synchronized console. */
     public static SynchConsole console;
 
     // dummy variables to make javac smarter
     private static Coff dummy1 = null;
+    
+    private static SortedSet<Integer> freePageSet;
+    private static Lock kPageLock;
 }

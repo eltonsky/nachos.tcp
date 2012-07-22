@@ -19,7 +19,7 @@ public class UThread extends KThread {
 			public void run() {
 			    runProgram();
 			}
-		    });
+		});
 	
 		this.process = process;
     }
@@ -43,12 +43,12 @@ public class UThread extends KThread {
 		    userRegisters[i] = Machine.processor().readRegister(i);
 	
 		super.saveState();
-	    }
+    }
 	
-	    /**
-	     * Restore state before receiving the processor again.
-	     */      
-	    protected void restoreState() {
+    /**
+     * Restore state before receiving the processor again.
+     */      
+    protected void restoreState() {
 		super.restoreState();
 		
 		for (int i=0; i<Processor.numUserRegisters; i++)

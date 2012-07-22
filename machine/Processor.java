@@ -29,32 +29,32 @@ public final class Processor {
      *				attach.
      */
     public Processor(Privilege privilege, int numPhysPages) {
-	System.out.print(" processor");
-
-	this.privilege = privilege;
-	privilege.processor = new ProcessorPrivilege();
-
-	Class<?> clsKernel = Lib.loadClass(Config.getString("Kernel.kernel"));
-	Class<?> clsVMKernel = Lib.tryLoadClass("nachos.vm.VMKernel");
-
-	usingTLB =
-	    (clsVMKernel != null && clsVMKernel.isAssignableFrom(clsKernel));
+		System.out.print(" processor");
 	
-	this.numPhysPages = numPhysPages;
-
-	for (int i=0; i<numUserRegisters; i++)
-	    registers[i] = 0;
-
-	mainMemory = new byte[pageSize * numPhysPages];
-
-	if (usingTLB) {
-	    translations = new TranslationEntry[tlbSize];
-	    for (int i=0; i<tlbSize; i++)
-		translations[i] = new TranslationEntry();
-	}
-	else {
-	    translations = null;
-	}
+		this.privilege = privilege;
+		privilege.processor = new ProcessorPrivilege();
+	
+		Class<?> clsKernel = Lib.loadClass(Config.getString("Kernel.kernel"));
+		Class<?> clsVMKernel = Lib.tryLoadClass("nachos.vm.VMKernel");
+	
+		usingTLB =
+		    (clsVMKernel != null && clsVMKernel.isAssignableFrom(clsKernel));
+		
+		this.numPhysPages = numPhysPages;
+	
+		for (int i=0; i<numUserRegisters; i++)
+		    registers[i] = 0;
+	
+		mainMemory = new byte[pageSize * numPhysPages];
+	
+		if (usingTLB) {
+		    translations = new TranslationEntry[tlbSize];
+		    for (int i=0; i<tlbSize; i++)
+		    	translations[i] = new TranslationEntry();
+		}
+		else {
+		    translations = null;
+		}
     }
 
     /**
@@ -126,10 +126,10 @@ public final class Processor {
      * @param	value	the value to write.
      */
     public void writeRegister(int number, int value) {
-	Lib.assertTrue(number >= 0 && number < numUserRegisters);
-
-	if (number != 0)
-	    registers[number] = value;
+		Lib.assertTrue(number >= 0 && number < numUserRegisters);
+	
+		if (number != 0)
+		    registers[number] = value;
     }
 
     /**
@@ -155,17 +155,19 @@ public final class Processor {
 	return usingTLB;
     }
 
+    
     /**
      * Get the current page table, set by the last call to setPageTable().
      *
      * @return	the current page table.
      */
     public TranslationEntry[] getPageTable() {
-	Lib.assertTrue(!usingTLB);
-
-	return translations;
+		Lib.assertTrue(!usingTLB);
+	
+		return translations;
     }
 
+    
     /**
      * Set the page table pointer. All further address translations will use
      * the specified page table. The size of the current address space will be
@@ -174,22 +176,24 @@ public final class Processor {
      * @param	pageTable	the page table to use.
      */
     public void setPageTable(TranslationEntry[] pageTable) {
-	Lib.assertTrue(!usingTLB);
-
-	this.translations = pageTable;
+		Lib.assertTrue(!usingTLB);
+	
+		this.translations = pageTable;
     }
 
+    
     /**
      * Return the number of entries in this processor's TLB.
      *
      * @return	the number of entries in this processor's TLB.
      */
     public int getTLBSize() {
-	Lib.assertTrue(usingTLB);
-    
-	return tlbSize;
+		Lib.assertTrue(usingTLB);
+	    
+		return tlbSize;
     }
 
+    
     /**
      * Returns the specified TLB entry.
      *
@@ -197,10 +201,10 @@ public final class Processor {
      * @return	the contents of the specified TLB entry.
      */
     public TranslationEntry readTLBEntry(int number) {
-	Lib.assertTrue(usingTLB);
-	Lib.assertTrue(number >= 0 && number < tlbSize);
-
-	return new TranslationEntry(translations[number]);
+		Lib.assertTrue(usingTLB);
+		Lib.assertTrue(number >= 0 && number < tlbSize);
+	
+		return new TranslationEntry(translations[number]);
     }
 
     /**
@@ -214,10 +218,10 @@ public final class Processor {
      * @param	entry	the new contents of the TLB entry.
      */
     public void writeTLBEntry(int number, TranslationEntry entry) {
-	Lib.assertTrue(usingTLB);
-	Lib.assertTrue(number >= 0 && number < tlbSize);
-
-	translations[number] = new TranslationEntry(entry);
+		Lib.assertTrue(usingTLB);
+		Lib.assertTrue(number >= 0 && number < tlbSize);
+	
+		translations[number] = new TranslationEntry(entry);
     }
 
     /**
@@ -227,7 +231,7 @@ public final class Processor {
      * @return	the number of pages of physical memory.
      */
     public int getNumPhysPages() {
-	return numPhysPages;
+    	return numPhysPages;
     }
 
     /**
@@ -237,7 +241,7 @@ public final class Processor {
      * @return	the main memory array.
      */
     public byte[] getMemory() {
-	return mainMemory;
+    	return mainMemory;
     }
 
     /**
@@ -251,10 +255,10 @@ public final class Processor {
      * @return	a 32-bit address consisting of the specified page and offset.
      */
     public static int makeAddress(int page, int offset) {
-	Lib.assertTrue(page >= 0 && page < maxPages);
-	Lib.assertTrue(offset >= 0 && offset < pageSize);
-
-	return (page * pageSize) | offset;
+		Lib.assertTrue(page >= 0 && page < maxPages);
+		Lib.assertTrue(offset >= 0 && offset < pageSize);
+	
+		return (page * pageSize) | offset;
     }
 
     /**
@@ -264,7 +268,7 @@ public final class Processor {
      * @return	the page number component of the address.
      */
     public static int pageFromAddress(int address) {
-	return (int) (((long) address & 0xFFFFFFFFL) / pageSize);
+    	return (int) (((long) address & 0xFFFFFFFFL) / pageSize);
     }
 
     /**
@@ -274,11 +278,11 @@ public final class Processor {
      * @return	the offset component of the address.
      */
     public static int offsetFromAddress(int address) {
-	return (int) (((long) address & 0xFFFFFFFFL) % pageSize);
+    	return (int) (((long) address & 0xFFFFFFFFL) % pageSize);
     }
 
     private void finishLoad() {
-	delayedLoad(0, 0, 0);
+    	delayedLoad(0, 0, 0);
     }
 
     /**
@@ -296,72 +300,74 @@ public final class Processor {
      */
     private int translate(int vaddr, int size, boolean writing)
 	throws MipsException {
-	if (Lib.test(dbgProcessor))
-	    System.out.println("\ttranslate vaddr=0x" + Lib.toHexString(vaddr)
-			       + (writing ? ", write" : ", read..."));
-
-	// check alignment
-	if ((vaddr & (size-1)) != 0) {
-	    Lib.debug(dbgProcessor, "\t\talignment error");
-	    throw new MipsException(exceptionAddressError, vaddr);
-	}
-
-	// calculate virtual page number and offset from the virtual address
-	int vpn = pageFromAddress(vaddr);
-	int offset = offsetFromAddress(vaddr);
-
-	TranslationEntry entry = null;
-
-	// if not using a TLB, then the vpn is an index into the table
-	if (!usingTLB) {
-	    if (translations == null || vpn >= translations.length ||
-		translations[vpn] == null ||
-		!translations[vpn].valid) {
-		privilege.stats.numPageFaults++;
-		Lib.debug(dbgProcessor, "\t\tpage fault");
-		throw new MipsException(exceptionPageFault, vaddr);
-	    }
-
-	    entry = translations[vpn];
-	}
-	// else, look through all TLB entries for matching vpn
-	else {
-	    for (int i=0; i<tlbSize; i++) {
-		if (translations[i].valid && translations[i].vpn == vpn) {
-		    entry = translations[i];
-		    break;
+		if (Lib.test(dbgProcessor))
+		    System.out.println("\ttranslate vaddr=0x" + Lib.toHexString(vaddr)
+				       + (writing ? ", write" : ", read..."));
+	
+		// check alignment
+		if ((vaddr & (size-1)) != 0) {
+		    Lib.debug(dbgProcessor, "\t\talignment error");
+		    throw new MipsException(exceptionAddressError, vaddr);
 		}
-	    }
-	    if (entry == null) {
-		privilege.stats.numTLBMisses++;
-		Lib.debug(dbgProcessor, "\t\tTLB miss");
-		throw new MipsException(exceptionTLBMiss, vaddr);
-	    }
-	}
-
-	// check if trying to write a read-only page
-	if (entry.readOnly && writing) {
-	    Lib.debug(dbgProcessor, "\t\tread-only exception");
-	    throw new MipsException(exceptionReadOnly, vaddr);
-	}
-
-	// check if physical page number is out of range
-	int ppn = entry.ppn;
-	if (ppn < 0 || ppn >= numPhysPages) {
-	    Lib.debug(dbgProcessor, "\t\tbad ppn");
-	    throw new MipsException(exceptionBusError, vaddr);
-	}
-
-	// set used and dirty bits as appropriate
-	entry.used = true;
-	if (writing)
-	    entry.dirty = true;
-
-	int paddr = (ppn*pageSize) + offset;
-
-	if (Lib.test(dbgProcessor))
-	    System.out.println("\t\tpaddr=0x" + Lib.toHexString(paddr));	
-	return paddr;
+	
+		// calculate virtual page number and offset from the virtual address
+		int vpn = pageFromAddress(vaddr);
+		int offset = offsetFromAddress(vaddr);
+	
+		TranslationEntry entry = null;
+	
+		// if not using a TLB, then the vpn is an index into the table
+		if (!usingTLB) {
+		    if (translations == null || vpn >= translations.length ||
+			translations[vpn] == null ||
+			!translations[vpn].valid) {
+			privilege.stats.numPageFaults++;
+			Lib.debug(dbgProcessor, "\t\tpage fault");
+			throw new MipsException(exceptionPageFault, vaddr);
+		    }
+	
+		    entry = translations[vpn];
+		}
+		// else, look through all TLB entries for matching vpn
+		else {
+		    for (int i=0; i<tlbSize; i++) {
+				if (translations[i].valid && translations[i].vpn == vpn) {
+				    entry = translations[i];
+				    break;
+				}
+		    }
+		    
+		    if (entry == null) {
+				privilege.stats.numTLBMisses++;
+				Lib.debug(dbgProcessor, "\t\tTLB miss");
+				throw new MipsException(exceptionTLBMiss, vaddr);
+		    }
+		    
+		}
+	
+		// check if trying to write a read-only page
+		if (entry.readOnly && writing) {
+		    Lib.debug(dbgProcessor, "\t\tread-only exception");
+		    throw new MipsException(exceptionReadOnly, vaddr);
+		}
+	
+		// check if physical page number is out of range
+		int ppn = entry.ppn;
+		if (ppn < 0 || ppn >= numPhysPages) {
+		    Lib.debug(dbgProcessor, "\t\tbad ppn");
+		    throw new MipsException(exceptionBusError, vaddr);
+		}
+	
+		// set used and dirty bits as appropriate
+		entry.used = true;
+		if (writing)
+		    entry.dirty = true;
+	
+		int paddr = (ppn*pageSize) + offset;
+	
+		if (Lib.test(dbgProcessor))
+		    System.out.println("\t\tpaddr=0x" + Lib.toHexString(paddr));	
+		return paddr;
     }
 
     /**
@@ -425,17 +431,17 @@ public final class Processor {
      */
     private void delayedLoad(int nextLoadTarget, int nextLoadValue,
 			     int nextLoadMask) {
-	// complete previous delayed load, if not modifying r0
-	if (loadTarget != 0) {
-	    int savedBits = registers[loadTarget] & ~loadMask;
-	    int newBits = loadValue & loadMask;
-	    registers[loadTarget] = savedBits | newBits;
-	}
-
-	// schedule next load
-	loadTarget = nextLoadTarget;
-	loadValue = nextLoadValue;
-	loadMask = nextLoadMask;
+		// complete previous delayed load, if not modifying r0
+		if (loadTarget != 0) {
+		    int savedBits = registers[loadTarget] & ~loadMask;
+		    int newBits = loadValue & loadMask;
+		    registers[loadTarget] = savedBits | newBits;
+		}
+	
+		// schedule next load
+		loadTarget = nextLoadTarget;
+		loadValue = nextLoadValue;
+		loadMask = nextLoadMask;
     }
 
     /**

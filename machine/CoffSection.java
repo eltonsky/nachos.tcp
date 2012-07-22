@@ -174,32 +174,32 @@ public class CoffSection {
      * @param	ppn	the physical page to load into.
      */
     public void loadPage(int spn, int ppn) {
-	Lib.assertTrue(file != null);
-
-	Lib.assertTrue(spn>=0 && spn<numPages);
-	Lib.assertTrue(ppn>=0 && ppn<Machine.processor().getNumPhysPages());
-
-	int pageSize = Processor.pageSize;
-	byte[] memory = Machine.processor().getMemory();
-	int paddr = ppn*pageSize;
-	int faddr = contentOffset + spn*pageSize;
-	int initlen;
-
-	if (!initialized)
-	    initlen = 0;
-	else if (spn == numPages-1)
-	    /** initlen = size % pageSize; 
-	     *  Bug identified by Steven Schlansker 3/20/08
-	     *  Bug fix by Michael Rauser
-	     */
-	    initlen = (size==pageSize) ? pageSize : (size%pageSize);
-	else
-	    initlen = pageSize;
-
-	if (initlen > 0)
-	    Lib.strictReadFile(file, faddr, memory, paddr, initlen);
-
-	Arrays.fill(memory, paddr+initlen, paddr+pageSize, (byte) 0);
+		Lib.assertTrue(file != null);
+	
+		Lib.assertTrue(spn>=0 && spn<numPages);
+		Lib.assertTrue(ppn>=0 && ppn<Machine.processor().getNumPhysPages());
+	
+		int pageSize = Processor.pageSize;
+		byte[] memory = Machine.processor().getMemory();
+		int paddr = ppn*pageSize;
+		int faddr = contentOffset + spn*pageSize;
+		int initlen;
+	
+		if (!initialized)
+		    initlen = 0;
+		else if (spn == numPages-1)
+		    /** initlen = size % pageSize; 
+		     *  Bug identified by Steven Schlansker 3/20/08
+		     *  Bug fix by Michael Rauser
+		     */
+		    initlen = (size==pageSize) ? pageSize : (size%pageSize);
+		else
+		    initlen = pageSize;
+	
+		if (initlen > 0)
+		    Lib.strictReadFile(file, faddr, memory, paddr, initlen);
+	
+		Arrays.fill(memory, paddr+initlen, paddr+pageSize, (byte) 0);
     }
 
     /** The COFF object to which this section belongs. */
