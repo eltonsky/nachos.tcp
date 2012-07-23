@@ -31,11 +31,6 @@ public class UserProcess {
     	// coz numofPages is only available until then; and as heap is not considered,
     	// numOfPage is static.
     	
-    	//page table
-//		pageTable = new TranslationEntry[numVMPages];
-//		for (int i=0; i<numVMPages; i++)
-//		    pageTable[i] = new TranslationEntry(i,i, true,false,false,false);
-		
 		//pid
 		setProcessID();
 		
@@ -56,7 +51,7 @@ public class UserProcess {
      * @return	a new process of the correct class.
      */
     public static UserProcess newUserProcess() {
-	return (UserProcess)Lib.constructObject(Machine.getProcessClassName());
+    	return (UserProcess)Lib.constructObject(Machine.getProcessClassName());
     }
 
     /**
@@ -68,12 +63,12 @@ public class UserProcess {
      * @return	<tt>true</tt> if the program was successfully executed.
      */
     public boolean execute(String name, String[] args) {
-	if (!load(name, args))
-	    return false;
+		if (!load(name, args))
+		    return false;
+		
+		new UThread(this).setName(name).fork();
 	
-	new UThread(this).setName(name).fork();
-
-	return true;
+		return true;
     }
 
     /**
@@ -174,8 +169,9 @@ public class UserProcess {
 			lastVpReadLength = 0;
 		}
 		
-		Lib.debug(dbgProcess, "##elton## vaddr "+ vaddr + " offset " + offset + " length " + length  +" firstVpn " + firstVpn + " firstVpOffset " 
-				+ firstVpOffset + " lastVpn " + lastVpn + " lastVpReadLength " + lastVpReadLength);
+		Lib.debug(dbgProcess, "##elton## vaddr "+ vaddr + " offset " + offset + 
+				" length " + length  +" firstVpn " + firstVpn + " firstVpOffset " + 
+				firstVpOffset + " lastVpn " + lastVpn + " lastVpReadLength " + lastVpReadLength);
 		
 		byte[] memory = Machine.processor().getMemory();
 		
@@ -255,8 +251,9 @@ public class UserProcess {
 			lastVpn = numPages - 1;
 		}
 			
-		Lib.debug(dbgProcess, "##elton## vaddr "+ vaddr + " offset " + offset + " length " + length  +" firstVpn " + firstVpn + " firstOffset " 
-				+ firstOffset + " lastVpn " + lastVpn + " lastWriteLength " + lastWriteLength);
+		Lib.debug(dbgProcess, "##elton## vaddr "+ vaddr + " offset " + 
+				offset + " length " + length  +" firstVpn " + firstVpn + " firstOffset " + 
+				firstOffset + " lastVpn " + lastVpn + " lastWriteLength " + lastWriteLength);
 		
 		byte[] memory = Machine.processor().getMemory();
 		
