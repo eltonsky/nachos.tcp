@@ -6,6 +6,7 @@ import nachos.security.*;
 import nachos.ag.*;
 
 import java.io.File;
+import java.util.ArrayList;
 
 /**
  * The master class of the simulated machine. Processes command line arguments,
@@ -147,6 +148,23 @@ public final class Machine {
 		    Lib.assertTrue(i < args.length, "switch without argument");
 		    shellProgramName = args[i++];		    
 		}		    
+		else if (arg.equals("-D1")) {
+		    Lib.assertTrue(i < args.length, "switch D1 without argument");
+		    tempUserArgs.add(args[i++]);		    
+		}
+		else if (arg.equals("-D2")) {
+		    Lib.assertTrue(i < args.length, "switch D2 without argument");
+		    tempUserArgs.add(args[i++]);		    
+		}
+		else if (arg.equals("-D3")) {
+		    Lib.assertTrue(i < args.length, "switch D3 without argument");
+		    tempUserArgs.add(args[i++]);	    
+		}
+		else if (arg.equals("-D4")) {
+		    Lib.assertTrue(i < args.length, "switch D4 without argument");
+		    tempUserArgs.add(args[i++]);	    
+		}
+		
 		else if (arg.equals("-z")) {
 		    System.out.print(copyright);
 		    System.exit(1);
@@ -379,6 +397,24 @@ public final class Machine {
 
     private static String shellProgramName = null;
 
+    /*
+     * args for user program. for now upto 4 args are allowed
+     */
+    public static String[] getUserProgArgs(){
+    	if(userArgs == null){
+    		userArgs = new String[tempUserArgs.size()];
+    		
+    		for(int i = 0; i < userArgs.length; i++){
+    			userArgs[i] = tempUserArgs.get(i);
+    		}
+    	}
+    	
+    	return userArgs;
+    }
+    
+    private static ArrayList<String> tempUserArgs = new ArrayList<String>();
+    private static String[] userArgs;
+    
     /**
      * Return the name of the process class that the kernel should use. In
      * the multi-programming project, returns

@@ -6,6 +6,7 @@ import nachos.userprog.*;
 
 import java.io.EOFException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -32,13 +33,16 @@ public class UserProcess {
     	// numOfPage is static.
     	
 		//pid
-		setProcessID();
+		setProcessID();		
 		
 		//fd table
 		fd_table = new FDTable();
 		//add stdin, stdout
 		fd_table.addFile(UserKernel.console.openForReading());
 		fd_table.addFile(UserKernel.console.openForWriting());
+		
+		//insert into processMap
+		processMap.put(this.getPID(), this);
     }
     
     
@@ -66,7 +70,9 @@ public class UserProcess {
 		if (!load(name, args))
 		    return false;
 		
-		new UThread(this).setName(name).fork();
+		UThread userthread = new UThread(this);
+		this.userthread = userthread;
+		userthread.setName(name).fork();
 	
 		return true;
     }
@@ -329,11 +335,18 @@ public class UserProcess {
 	// make sure the argv array will fit in one page
 	byte[][] argv = new byte[args.length][];
 	int argsSize = 0;
+	
 	for (int i=0; i<args.length; i++) {
+		
+Lib.debug(dbgProcess, "args " + i +": " + args[i]);
+		
 	    argv[i] = args[i].getBytes();
 	    // 4 bytes for argv[] pointer; then string plus one for null byte
 	    argsSize += 4 + argv[i].length + 1;
 	}
+	
+Lib.debug(dbgProcess, "argsSize is " + argsSize);	
+	
 	if (argsSize > pageSize) {
 	    coff.close();
 	    Lib.debug(dbgProcess, "\targuments too long");
@@ -360,7 +373,12 @@ public class UserProcess {
 	this.argc = args.length;
 	this.argv = entryOffset;
 	
-	for (int i=0; i<argv.length; i++) {
+Lib.debug(dbgProcess, "argv length is " + argv.length);
+	
+	for (int i=0; i<argv.length; i++) {	
+		
+Lib.debug(dbgProcess, "argv[" + i +"] is " + argv[i] + " String: " + new String(argv[i]));
+		
 	    byte[] stringOffsetBytes = Lib.bytesFromInt(stringOffset);
 	    Lib.assertTrue(writeVirtualMemory(entryOffset,stringOffsetBytes) == 4);
 	    entryOffset += 4;
@@ -483,7 +501,7 @@ public class UserProcess {
      * @return the new file descriptor on success, or -1 on failure.
      */
     private int handleCreate(int a0){
-    	printMemoryString(a0);
+    	//printMemoryString(a0);
     	
         String filename = readVirtualMemoryString(a0, 256);
         
@@ -643,6 +661,54 @@ public class UserProcess {
         }
 	}
     
+    /*
+     * 
+     */
+    private int handleExec(int a_file, int argc, int a_argv){
+        String filename = readVirtualMemoryString(a_file, 256);
+        byte[] b = new byte[256];
+        
+        String[] argv = new String[argc];
+        
+        int vaddr = a_argv;
+        String currArg;
+        for(int i=0;i<argc;i++){
+        	currArg = readVirtualMemoryString(vaddr, 256);
+        	
+        	argv[i] = currArg;
+        	vaddr += currArg.length();
+        }
+        
+        if(filename == null || !filename.endsWith(".coff") || argc < 0){
+                return -1;
+        }else{
+            UserProcess childProcess = new UserProcess();
+            parentPID = this.getPID();
+            childProcess.execute(filename, argv);
+            
+            return childProcess.getPID();
+        }
+	}
+
+    /*
+     * 
+     */
+    private int handleJoin(int childPID, int status) {
+    	UserProcess child = processMap.get(childPID);
+    	// only parent is allowed to join this process
+    	if(child.parentPID != this.getPID())
+    		return -1;
+    	
+    	child.userThread.join();
+    	
+    	
+    	
+    	return 0;
+    }
+    
+    /*
+     * 
+     */
     private int handleExit() {
     	return 0;
     }
@@ -708,6 +774,8 @@ public class UserProcess {
 			return handleUnlink(a0);
 		case syscallClose:
 			return handleClose(a0);
+		case syscallExec:
+			return handleExec(a0,a1,a2);
 	
 			
 		default:
@@ -764,6 +832,10 @@ public class UserProcess {
 		currentPID = (currentPID + 1)%MAX_PROCESS_NUM;
 		pidLock.release();
     }
+    
+    public int getPID() {
+    	return pid;
+    }
 
     /** The program being run by this process. */
     protected Coff coff;
@@ -780,12 +852,15 @@ public class UserProcess {
     private int initialPC, initialSP;
     private int argc, argv;
     private int pid;
+    private int parentPID;
+    private UThread userThread;
     
     private static final int MAX_PROCESS_NUM = 32768;
     private static final int maxOpenFiles = 16;
     private static final int numVMPages = 8;
     private static final int pageSize = Processor.pageSize;
     private static final char dbgProcess = 'a';
+    private static HashMap<Integer,UserProcess> processMap = new HashMap<Integer,UserProcess>();
     
     public static int currentPID = 0;
     public static int runningProcesses = 0;
