@@ -41,8 +41,10 @@ public class UserProcess {
 		fd_table.addFile(UserKernel.console.openForReading());
 		fd_table.addFile(UserKernel.console.openForWriting());
 		
-		//insert into processMap
-		processMap.put(this.getPID(), this);
+        // track num of running processes.
+        pidLock.acquire();
+        runningProcesses++;
+        pidLock.release();
     }
     
     
@@ -71,7 +73,7 @@ public class UserProcess {
 		    return false;
 		
 		UThread userthread = new UThread(this);
-		this.userthread = userthread;
+		this.userThread = userthread;
 		userthread.setName(name).fork();
 	
 		return true;
@@ -92,8 +94,8 @@ public class UserProcess {
     	Machine.processor().setPageTable(pageTable);
     }
 
-    public void printMemoryString(int a0) {
-		byte[] bytes = new byte[1024];
+    public void printMemoryString(int a0, int length) {
+		byte[] bytes = new byte[length];
 	
 		int bytesRead = readVirtualMemory(a0, bytes);
 	
@@ -597,7 +599,7 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + argv[i] + " String: " + new String(
      * occurred.
      */
     protected int handleWrite(int a0, int a1, int a2){
-    	Lib.debug(dbgProcess, "a0 " + a0 + " a1 " +a1+" a2 " + a2 + " fd_table.getFile(a0) " + fd_table.getFile(a0));
+    	Lib.debug(dbgProcess, "a0 " + a0 + " a1 " +a1+" a2 " + a2 + " fd_table.getFile(a0) " + fd_table.getFile(a0).getName());
     	
         if(a0 >= 0 && fd_table.getFile(a0) != null
         		&& a1 >=0 && a2 > 0){
@@ -662,7 +664,24 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + argv[i] + " String: " + new String(
 	}
     
     /*
-     * 
+     * Execute the program stored in the specified file, with the specified
+	 * arguments, in a new child process. The child process has a new unique
+	 * process ID, and starts with stdin opened as file descriptor 0, and stdout
+	 * opened as file descriptor 1.
+	 *
+	 * file is a null-terminated string that specifies the name of the file
+	 * containing the executable. Note that this string must include the ".coff"
+	 * extension.
+	 *
+	 * argc specifies the number of arguments to pass to the child process. This
+	 * number must be non-negative.
+	 *
+	 * argv is an array of pointers to null-terminated strings that represent the
+	 * arguments to pass to the child process. argv[0] points to the first
+	 * argument, and argv[argc-1] points to the last argument.
+	 *
+	 * exec() returns the child process's process ID, which can be passed to
+	 * join(). On error, returns -1.
      */
     private int handleExec(int a_file, int argc, int a_argv){
         String filename = readVirtualMemoryString(a_file, 256);
@@ -670,47 +689,111 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + argv[i] + " String: " + new String(
         
         String[] argv = new String[argc];
         
+        Lib.debug(dbgProcess, "argc " + argc + ", a_argv " + a_argv);        
+        
         int vaddr = a_argv;
         String currArg;
         for(int i=0;i<argc;i++){
         	currArg = readVirtualMemoryString(vaddr, 256);
         	
         	argv[i] = currArg;
-        	vaddr += currArg.length();
+        	// assign 256 chars for each arg
+        	vaddr += 256;
+        	
+        	Lib.debug(dbgProcess, "argv" +i +" "+ argv[i] +", vaddr " + vaddr);        	
         }
+        
+        printMemoryString(a_argv,1024);        
         
         if(filename == null || !filename.endsWith(".coff") || argc < 0){
                 return -1;
         }else{
             UserProcess childProcess = new UserProcess();
-            parentPID = this.getPID();
+            childProcess.parentPID = this.getPID();
+            childrenMap.put(childProcess.getPID(), childProcess);
             childProcess.execute(filename, argv);
-            
+
             return childProcess.getPID();
         }
 	}
 
     /*
-     * 
+     * Suspend execution of the current process until the child process specified
+	 * by the processID argument has exited. If the child has already exited by the
+	 * time of the call, returns immediately. When the current process resumes, it
+	 * disowns the child process, so that join() cannot be used on that process
+	 * again.
+	 *
+	 * processID is the process ID of the child process, returned by exec().
+	 *
+	 * status points to an integer where the exit status of the child process will
+	 * be stored. This is the value the child passed to exit(). If the child exited
+	 * because of an unhandled exception, the value stored is not defined.
+	 *
+	 * If the child exited normally, returns 1. If the child exited as a result of
+	 * an unhandled exception, returns 0. If processID does not refer to a child
+	 * process of the current process, returns -1.
      */
-    private int handleJoin(int childPID, int status) {
-    	UserProcess child = processMap.get(childPID);
+    private int handleJoin(int childPID, int statusPtr) {
+    	UserProcess child = childrenMap.get(childPID);
     	// only parent is allowed to join this process
-    	if(child.parentPID != this.getPID())
+    	if(child==null)
     		return -1;
     	
     	child.userThread.join();
     	
+    	//write exitStatus to statusPtr
+    	if(statusPtr >= 0){ 
+	    	byte[] statusByte = Lib.intToByteArray(child.exitStatus);
+	    	
+	    	writeVirtualMemory(statusPtr, statusByte);	    	
+	    }
     	
+    	if(child.exitStatus == 0)
+    		return 1;
     	
     	return 0;
     }
     
     /*
-     * 
+     * Terminate the current process immediately. Any open file descriptors
+	 * belonging to the process are closed. Any children of the process no longer
+	 * have a parent process.
+	 *
+	 * status is returned to the parent process as this process's exit status and
+	 * can be collected using the join syscall. A process exiting normally should
+	 * (but is not required to) set status to 0.
+	 *
+	 * exit() never returns.
      */
-    private int handleExit() {
-    	return 0;
+    private void handleExit(int status) {
+    	// ensure current thread is this thread, we try to finish current thread.
+    	Lib.assertTrue(UThread.currentThread().getId() == this.userThread.getId());
+    	
+Lib.debug(dbgProcess, "status is " + status);    	
+    	
+    	//close fd
+    	fd_table.clear();
+    	
+    	//free mem
+    	unloadSections();
+    	
+    	//assign exit status
+    	this.exitStatus = status;
+    	
+    	pidLock.acquire();
+    	//terminate system if this is the last process in the system.
+    	if(runningProcesses == 1){
+    		Kernel.kernel.terminate();
+    	}
+    	
+    	runningProcesses--;
+
+    	pidLock.release();
+    	
+		//finish current thread.
+    	UThread.finish();
+    	
     }
 
     private static final int
@@ -755,13 +838,13 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + argv[i] + " String: " + new String(
      */
     public int handleSyscall(int syscall, int a0, int a1, int a2, int a3) {
     	
-    	Lib.debug(dbgProcess, "Enter ... syacall is " + syscall);
+    	Lib.debug(dbgProcess, "... Syscall is " + syscall);
     	
 		switch (syscall) {
 		case syscallHalt:
 		    return handleHalt();
 		case syscallExit:
-			return handleExit();
+			handleExit(a0);			
 		case syscallCreate:
 			return handleCreate(a0);
 		case syscallOpen:
@@ -776,6 +859,8 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + argv[i] + " String: " + new String(
 			return handleClose(a0);
 		case syscallExec:
 			return handleExec(a0,a1,a2);
+		case syscallJoin:
+			return handleJoin(a0,a1);
 	
 			
 		default:
@@ -854,13 +939,17 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + argv[i] + " String: " + new String(
     private int pid;
     private int parentPID;
     private UThread userThread;
+    // syscall exit() will put exitStatus in process; and join() will load this exitStatus to *status.
+    private int exitStatus;
+    // if this child is exited
+    private boolean exited = false;
+    private HashMap<Integer,UserProcess> childrenMap = new HashMap<Integer,UserProcess>();
     
     private static final int MAX_PROCESS_NUM = 32768;
     private static final int maxOpenFiles = 16;
     private static final int numVMPages = 8;
     private static final int pageSize = Processor.pageSize;
     private static final char dbgProcess = 'a';
-    private static HashMap<Integer,UserProcess> processMap = new HashMap<Integer,UserProcess>();
     
     public static int currentPID = 0;
     public static int runningProcesses = 0;
@@ -887,10 +976,17 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + argv[i] + " String: " + new String(
     		if(fdFile[fd] == null)
     			return -1;
     		
+    		fdFile[fd].close();
     		fdFile[fd] = null;
     		length--;
     		
     		return 0;
+    	}
+    	
+    	public void clear(){
+    		for(int i=0;i<length;i++){
+    			this.deleteFile(i);
+    		}
     	}
     	
     	public OpenFile getFile(int fd){    		

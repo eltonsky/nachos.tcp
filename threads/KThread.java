@@ -300,7 +300,8 @@ public class KThread {
 		Lib.assertTrue(this != currentThread);
 		
 		Lib.assertTrue(!JoinCalled, "join is already called by other thread");
-	
+		JoinCalled = true;
+		
 		// call all children to join
 		for(KThread kt : childrenThread){
 			kt.join();
@@ -312,7 +313,7 @@ public class KThread {
 			
 			do {
 				yield();
-				System.out.println(toString() + " : join is testing status again ...");
+				Lib.debug(dbgThread, "join is checking status again ...");
 			}while(this.status != statusFinished);
 		}
 	
