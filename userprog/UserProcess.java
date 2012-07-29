@@ -453,7 +453,6 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + argv[i] + " String: " + new String(
     	for(TranslationEntry te : pageTable){
     		UserKernel.freePage(te.ppn);
     	}
-    	
     	coff.close();
     }    
 
