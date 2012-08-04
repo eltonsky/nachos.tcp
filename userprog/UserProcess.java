@@ -364,12 +364,15 @@ Lib.debug(dbgProcess, "argsSize is " + argsSize);
 
 	// and finally reserve 1 page for arguments
 	numPages++;
+	
+//reserve 1 page for heap
+numPages++;
 
 	if (!loadSections())
 	    return false;
 
 	// store arguments in last page
-	int entryOffset = (numPages-1)*pageSize;
+int entryOffset = (numPages-2)*pageSize;
 	int stringOffset = entryOffset + args.length*4;
 
 	this.argc = args.length;
@@ -414,8 +417,9 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + argv[i] + " String: " + new String(
 		    return false;
 		}
 		
-		pageTable = new TranslationEntry[numPages];
+Lib.debug(dbgProcess, "numPages is " + numPages);
 		
+		pageTable = new TranslationEntry[numPages];
 		
 		int vpn = 0;
 		// load sections
@@ -754,6 +758,22 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + argv[i] + " String: " + new String(
     	return 0;
     }
     
+    
+    
+    private int handleMalloc(int size) {
+    	int ppn = numPages - 1;
+    	
+    	Lib.debug(dbgProcess, "ppn is " + ppn);
+    	
+    	return ppn * pageSize;
+    }
+    
+    
+    private void handleFree(int pos) {
+    	
+    }
+    
+    
     /*
      * Terminate the current process immediately. Any open file descriptors
 	 * belonging to the process are closed. Any children of the process no longer
@@ -769,7 +789,7 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + argv[i] + " String: " + new String(
     	// ensure current thread is this thread, we try to finish current thread.
     	Lib.assertTrue(UThread.currentThread().getId() == this.userThread.getId());
     	
-Lib.debug(dbgProcess, "status is " + status);    	
+    	Lib.debug(dbgProcess, "status is " + status);    	
     	
     	//close fd
     	fd_table.clear();
@@ -805,7 +825,9 @@ Lib.debug(dbgProcess, "status is " + status);
 		syscallRead = 6,
 		syscallWrite = 7,
 		syscallClose = 8,
-		syscallUnlink = 9;
+		syscallUnlink = 9,
+		syscallMalloc = 13,
+    	syscallFree = 14;
 
     /**
      * Handle a syscall exception. Called by <tt>handleException()</tt>. The
@@ -843,7 +865,8 @@ Lib.debug(dbgProcess, "status is " + status);
 		case syscallHalt:
 		    return handleHalt();
 		case syscallExit:
-			handleExit(a0);			
+			handleExit(a0);
+			break;
 		case syscallCreate:
 			return handleCreate(a0);
 		case syscallOpen:
@@ -860,7 +883,11 @@ Lib.debug(dbgProcess, "status is " + status);
 			return handleExec(a0,a1,a2);
 		case syscallJoin:
 			return handleJoin(a0,a1);
-	
+		case syscallMalloc:
+			return handleMalloc(a0);
+		case syscallFree:
+			handleFree(a0);
+			break;
 			
 		default:
 		    Lib.debug(dbgProcess, "Unknown syscall " + syscall);
@@ -943,6 +970,7 @@ Lib.debug(dbgProcess, "status is " + status);
     // if this child is exited
     private boolean exited = false;
     private HashMap<Integer,UserProcess> childrenMap = new HashMap<Integer,UserProcess>();
+    
     
     private static final int MAX_PROCESS_NUM = 32768;
     private static final int maxOpenFiles = 16;

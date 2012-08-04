@@ -26,6 +26,9 @@
 #define syscallConnect		11
 #define syscallAccept		12
 
+#define syscallMalloc           13
+#define syscallFree             14
+
 /* Don't want the assembler to see C code, but start.s includes syscall.h. */
 #ifndef START_S
 
@@ -36,6 +39,10 @@
  */
 #define fdStandardInput		0
 #define fdStandardOutput	1
+
+void free(void* pos); 
+
+void *malloc(unsigned int size);
 
 /* The system call interface. These are the operations the Nachos kernel needs
  * to support, to be able to run user programs.

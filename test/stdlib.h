@@ -24,6 +24,7 @@ void __assert(char* file, int line);
 
 #define assertNotReached()	assert(false)
 
+void *malloc(unsigned int size);
 void *memcpy(void *s1, const void *s2, unsigned int n);
 void *memset(void *s, int c, unsigned int n);
 

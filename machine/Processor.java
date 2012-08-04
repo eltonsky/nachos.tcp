@@ -618,15 +618,13 @@ public final class Processor {
     private class Instruction {
 	public void run() throws MipsException {
 	    // hopefully this looks familiar to 152 students?
-		Lib.debug(dbgProcessor, "before fetch");
 	    fetch();
-	    Lib.debug(dbgProcessor, "before decode");
+	    
 	    decode();
-	    Lib.debug(dbgProcessor, "before exe");
+	    
 	    execute();
-	    Lib.debug(dbgProcessor, "before writeback");
+	    
 	    writeBack();
-	    Lib.debug(dbgProcessor, "after writeback");
 	}	
 
 	private boolean test(int flag) {

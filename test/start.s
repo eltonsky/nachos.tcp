@@ -67,3 +67,5 @@ name:				; \
 	SYSCALLSTUB(mmap, syscallMmap)
 	SYSCALLSTUB(connect, syscallConnect)
 	SYSCALLSTUB(accept, syscallAccept)
+	SYSCALLSTUB(malloc, syscallMalloc)
+        SYSCALLSTUB(free, syscallFree)
