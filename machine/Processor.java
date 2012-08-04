@@ -2,6 +2,8 @@
 
 package nachos.machine;
 
+import java.util.TreeMap;
+
 import nachos.security.*;
 
 /**
@@ -48,9 +50,9 @@ public final class Processor {
 		mainMemory = new byte[pageSize * numPhysPages];
 	
 		if (usingTLB) {
-		    translations = new TranslationEntry[tlbSize];
+		    translations = new TreeMap<Integer,TranslationEntry>();
 		    for (int i=0; i<tlbSize; i++)
-		    	translations[i] = new TranslationEntry();
+		    	translations.put(i,new TranslationEntry());
 		}
 		else {
 		    translations = null;
@@ -161,7 +163,7 @@ public final class Processor {
      *
      * @return	the current page table.
      */
-    public TranslationEntry[] getPageTable() {
+    public TreeMap<Integer,TranslationEntry> getPageTable() {
 		Lib.assertTrue(!usingTLB);
 	
 		return translations;
@@ -175,7 +177,7 @@ public final class Processor {
      *
      * @param	pageTable	the page table to use.
      */
-    public void setPageTable(TranslationEntry[] pageTable) {
+    public void setPageTable(TreeMap<Integer,TranslationEntry> pageTable) {
 		Lib.assertTrue(!usingTLB);
 	
 		this.translations = pageTable;
@@ -204,7 +206,7 @@ public final class Processor {
 		Lib.assertTrue(usingTLB);
 		Lib.assertTrue(number >= 0 && number < tlbSize);
 	
-		return new TranslationEntry(translations[number]);
+		return new TranslationEntry(translations.get(number));
     }
 
     /**
@@ -221,7 +223,7 @@ public final class Processor {
 		Lib.assertTrue(usingTLB);
 		Lib.assertTrue(number >= 0 && number < tlbSize);
 	
-		translations[number] = new TranslationEntry(entry);
+		translations.put(number, new TranslationEntry(entry));
     }
 
     /**
@@ -318,21 +320,21 @@ public final class Processor {
 	
 		// if not using a TLB, then the vpn is an index into the table
 		if (!usingTLB) {
-		    if (translations == null || vpn >= translations.length ||
-			translations[vpn] == null ||
-			!translations[vpn].valid) {		    	
+		    if (translations == null || vpn >= translations.keySet().size() ||
+			translations.get(vpn) == null ||
+			!translations.get(vpn).valid) {		    	
 			privilege.stats.numPageFaults++;
 			Lib.debug(dbgProcessor, "\t\tpage fault");
 			throw new MipsException(exceptionPageFault, vaddr);
 		    }
 	
-		    entry = translations[vpn];
+		    entry = translations.get(vpn);
 		}
 		// else, look through all TLB entries for matching vpn
 		else {
 		    for (int i=0; i<tlbSize; i++) {
-				if (translations[i].valid && translations[i].vpn == vpn) {
-				    entry = translations[i];
+				if (translations.get(i).valid && translations.get(i).vpn == vpn) {
+				    entry = translations.get(i);
 				    break;
 				}
 		    }
@@ -553,7 +555,7 @@ public final class Processor {
      * Either an associative or direct-mapped set of translation entries,
      * depending on whether there is a TLB.
      */
-    private TranslationEntry[] translations;
+    private TreeMap<Integer,TranslationEntry> translations;
 
     /** Size of a page, in bytes. */
     public static final int pageSize = 0x400;

@@ -106,13 +106,7 @@ public class UserProcess {
      * <tt>UThread.restoreState()</tt>.
      */
     public void restoreState() {
-    	TranslationEntry[] aryPageTable = new TranslationEntry[pageTable.lastKey()+1];
-
-    	for(Integer vpn : pageTable.keySet()) {
-    		aryPageTable[vpn] = pageTable.get(vpn);
-    	}
-    	
-    	Machine.processor().setPageTable(aryPageTable);
+    	Machine.processor().setPageTable(pageTable);
     }
 
     public void printMemoryString(int a0, int length) {
@@ -810,6 +804,8 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + new String(argv[i]));
     	int vpn = vaddr/pageSize;
 
     	Lib.debug(dbgProcess, "free vaddr " + vaddr + " start vpn " + vpn);
+//    	Lib.debug(dbgProcess, "Before free");
+//    	printMemoryString(0, (pageTable.lastKey()+1)*pageSize);
     	
     	// get list of vpn to be deallocated
     	List<Integer> lstVpn = allocatedSeg.get(vpn);
