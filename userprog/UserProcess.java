@@ -7,8 +7,10 @@ import nachos.userprog.*;
 import java.io.EOFException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 /**
  * Encapsulates the state of a user process that is not contained in its
@@ -45,6 +47,11 @@ public class UserProcess {
         pidLock.acquire();
         runningProcesses++;
         pidLock.release();
+        
+        //init pageTable
+        pageTable = new TreeMap<Integer,TranslationEntry>();
+        //init allocatedSeg
+        allocatedSeg = new TreeMap<Integer,List<Integer>>();
     }
     
     
@@ -78,6 +85,14 @@ public class UserProcess {
 	
 		return true;
     }
+    
+    public void printPageTable(){
+    	Lib.debug(dbgProcess, "Page Table : " + pageTable.keySet().size());
+    	
+    	for(Integer v : pageTable.keySet()){
+    		Lib.debug(dbgProcess, "vpn " + v + " ppn " + pageTable.get(v).ppn);
+    	}
+    }
 
     /**
      * Save the state of this process in preparation for a context switch.
@@ -91,7 +106,13 @@ public class UserProcess {
      * <tt>UThread.restoreState()</tt>.
      */
     public void restoreState() {
-    	Machine.processor().setPageTable(pageTable);
+    	TranslationEntry[] aryPageTable = new TranslationEntry[pageTable.lastKey()+1];
+
+    	for(Integer vpn : pageTable.keySet()) {
+    		aryPageTable[vpn] = pageTable.get(vpn);
+    	}
+    	
+    	Machine.processor().setPageTable(aryPageTable);
     }
 
     public void printMemoryString(int a0, int length) {
@@ -170,11 +191,13 @@ public class UserProcess {
 		int firstVpOffset = Processor.offsetFromAddress(vaddr);
 		int lastVpn = Processor.pageFromAddress(vaddr+length);
 		int lastVpReadLength = 0; 
-		if (lastVpn <= numPages)
+		
+		// don't let lastVpn cross the bound. 
+		if (lastVpn <= pageTable.lastKey())
 			lastVpReadLength = Processor.offsetFromAddress(vaddr+length);
 		else {
-			lastVpn = numPages -1;
-			lastVpReadLength = 0;
+			lastVpn = pageTable.lastKey();
+			lastVpReadLength = pageSize;
 		}
 		
 		Lib.debug(dbgProcess, "##elton## vaddr "+ vaddr + " offset " + offset + 
@@ -252,14 +275,16 @@ public class UserProcess {
 		int firstOffset = Processor.offsetFromAddress(vaddr);
 		int lastVpn = Processor.pageFromAddress(vaddr+length);
 		int lastWriteLength = -1;
-		if(lastVpn < numPages)
+		
+		// don't let lastVpn cross the bound.
+		if(lastVpn <= pageTable.lastKey())
 			lastWriteLength= Processor.offsetFromAddress(vaddr+length);
 		else{
-			lastWriteLength= pageSize;
-			lastVpn = numPages - 1;
+			lastWriteLength= 0;
+			lastVpn = pageTable.lastKey();
 		}
 			
-		Lib.debug(dbgProcess, "##elton## vaddr "+ vaddr + " offset " + 
+		Lib.debug(dbgProcess, "vaddr "+ vaddr + " offset " + 
 				offset + " length " + length  +" firstVpn " + firstVpn + " firstOffset " + 
 				firstOffset + " lastVpn " + lastVpn + " lastWriteLength " + lastWriteLength);
 		
@@ -282,7 +307,7 @@ public class UserProcess {
 					thisWrite = pageSize;
 			}
 			
-			Lib.debug(dbgProcess, "##elton## paddr " + paddr + " dataOffset "
+			Lib.debug(dbgProcess, "paddr " + paddr + " dataOffset "
 					+dataOffset+" thisWrite " + thisWrite + " totalWrite " + totalWrite);
 			
 			System.arraycopy(data, dataOffset, memory, paddr, thisWrite);
@@ -364,15 +389,12 @@ Lib.debug(dbgProcess, "argsSize is " + argsSize);
 
 	// and finally reserve 1 page for arguments
 	numPages++;
-	
-//reserve 1 page for heap
-numPages++;
 
 	if (!loadSections())
 	    return false;
 
 	// store arguments in last page
-int entryOffset = (numPages-2)*pageSize;
+	int entryOffset = (numPages-1)*pageSize;
 	int stringOffset = entryOffset + args.length*4;
 
 	this.argc = args.length;
@@ -382,7 +404,7 @@ Lib.debug(dbgProcess, "argv length is " + argv.length);
 	
 	for (int i=0; i<argv.length; i++) {	
 		
-Lib.debug(dbgProcess, "argv[" + i +"] is " + argv[i] + " String: " + new String(argv[i]));
+Lib.debug(dbgProcess, "argv[" + i +"] is " + new String(argv[i]));
 		
 	    byte[] stringOffsetBytes = Lib.bytesFromInt(stringOffset);
 	    Lib.assertTrue(writeVirtualMemory(entryOffset,stringOffsetBytes) == 4);
@@ -417,9 +439,7 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + argv[i] + " String: " + new String(
 		    return false;
 		}
 		
-Lib.debug(dbgProcess, "numPages is " + numPages);
-		
-		pageTable = new TranslationEntry[numPages];
+		Lib.debug(dbgProcess, "Stack numPages is " + numPages);
 		
 		int vpn = 0;
 		// load sections
@@ -434,15 +454,16 @@ Lib.debug(dbgProcess, "numPages is " + numPages);
 		
 				// allocate mem
 				// readonly is set to true, if it is from .text
-				pageTable[vpn] = new TranslationEntry(vpn, UserKernel.allocatePage(), true,section.isReadOnly(),false,false);
+				pageTable.put(vpn,new TranslationEntry(vpn, UserKernel.allocatePage(), true,section.isReadOnly(),false,false));
 				
-				section.loadPage(i, pageTable[vpn].ppn);
+				section.loadPage(i, pageTable.get(vpn).ppn);
 		    }
 		}
 		
 		// if not allocated to numPages for section, allocate more here.
+		// for args
 		for(int j = vpn+1; j < numPages; j++){
-			pageTable[j] = new TranslationEntry(j, UserKernel.allocatePage(), true,false,false,false);
+			pageTable.put(j,new TranslationEntry(j, UserKernel.allocatePage(), true,false,false,false));
 		}
 		
 		return true;
@@ -454,7 +475,8 @@ Lib.debug(dbgProcess, "numPages is " + numPages);
      * close coff
      */
     protected void unloadSections() {
-    	for(TranslationEntry te : pageTable){
+    	// free any memory allocated.
+    	for(TranslationEntry te : pageTable.values()){
     		UserKernel.freePage(te.ppn);
     	}
     	coff.close();
@@ -761,15 +783,45 @@ Lib.debug(dbgProcess, "numPages is " + numPages);
     
     
     private int handleMalloc(int size) {
-    	int ppn = numPages - 1;
+    	int pages = (size / pageSize) + (size%pageSize==0?0:1) ;
     	
-    	Lib.debug(dbgProcess, "ppn is " + ppn);
+    	int startVpn = pageTable.keySet().size();
     	
-    	return ppn * pageSize;
+    	int vpn = startVpn;
+    	List<Integer> lstVpn = new ArrayList<Integer>();
+    	for(int i=0; i < pages; i++){
+    		vpn += i;
+    		
+    		pageTable.put(vpn, new TranslationEntry(vpn, UserKernel.allocatePage(), true,false,false,false));
+    		lstVpn.add(vpn);
+    	}
+    	
+    	allocatedSeg.put(vpn, lstVpn);
+    	
+    	Lib.debug(dbgProcess, "allocated vpn : " + vpn + " size : " + pages);
+    	
+    	return getPhysicAddress(vpn, 0);
     }
     
     
-    private void handleFree(int pos) {
+    private void handleFree(int vaddr) {
+    	// coz malloc allocates from the begin of a page, the vaddr must
+    	// starts from a page as well.
+    	int vpn = vaddr/pageSize;
+
+    	Lib.debug(dbgProcess, "free vaddr " + vaddr + " start vpn " + vpn);
+    	
+    	// get list of vpn to be deallocated
+    	List<Integer> lstVpn = allocatedSeg.get(vpn);
+    	
+    	for(Integer v : lstVpn){
+    		UserKernel.freePage(pageTable.get(v).ppn);
+    		pageTable.remove(v);
+    		
+    		Lib.debug(dbgProcess, "free vpn " + v);
+    	}
+    	
+    	allocatedSeg.remove(vpn);
     	
     }
     
@@ -928,10 +980,9 @@ Lib.debug(dbgProcess, "numPages is " + numPages);
 
     
     private int getPhysicAddress(int vpn, int offset){
-    	if(pageTable.length < vpn+1)
-    		return -1;
-    				
-    	int ppn = pageTable[vpn].ppn;
+    	Lib.assertTrue(pageTable.lastKey() >= vpn, "vpn "+vpn +" is out of bound.");
+    	
+    	int ppn = pageTable.get(vpn).ppn;
     	return ppn*pageSize + offset;
     }
     
@@ -952,7 +1003,11 @@ Lib.debug(dbgProcess, "numPages is " + numPages);
     protected Coff coff;
 
     /** This process's page table. */
-    protected TranslationEntry[] pageTable;
+    protected TreeMap<Integer,TranslationEntry> pageTable;
+    
+    /** dynamically allocated page segments. */
+    protected TreeMap<Integer,List<Integer>> allocatedSeg;
+    
     /** The number of contiguous pages occupied by the program. */
     protected int numPages;
 

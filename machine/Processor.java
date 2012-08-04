@@ -320,7 +320,7 @@ public final class Processor {
 		if (!usingTLB) {
 		    if (translations == null || vpn >= translations.length ||
 			translations[vpn] == null ||
-			!translations[vpn].valid) {
+			!translations[vpn].valid) {		    	
 			privilege.stats.numPageFaults++;
 			Lib.debug(dbgProcessor, "\t\tpage fault");
 			throw new MipsException(exceptionPageFault, vaddr);
