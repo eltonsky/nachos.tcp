@@ -65,7 +65,7 @@ public class CoffSection {
 	contentOffset = Lib.bytesToInt(buf, 20);
 	int numRelocations = Lib.bytesToUnsignedShort(buf, 32);
 	int flags = Lib.bytesToInt(buf, 36);
-
+	
 	if (numRelocations != 0) {
 	    Lib.debug(dbgCoffSection, "\tsection needs relocation");
 	    throw new EOFException();
@@ -108,6 +108,10 @@ public class CoffSection {
 
 	numPages = Lib.divRoundUp(size, Processor.pageSize);
 	firstVPN = vaddr / Processor.pageSize;
+	
+
+Lib.debug(dbgCoffSection, "name " + name + " vaddr " + vaddr + " size " + size + " contentOffset " + contentOffset +
+		" flags " + flags+ " numPages " + numPages + " firstVPN " + firstVPN);	
     }
 
     /**

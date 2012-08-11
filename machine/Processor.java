@@ -100,8 +100,6 @@ public final class Processor {
 		    	inst.run();
 		    }
 		    catch (MipsException e) {
-		    	Lib.debug(dbgProcessor, "get execpteion ...");
-		    	
 		    	e.handle();
 		    }
 	
@@ -180,6 +178,8 @@ public final class Processor {
     public void setPageTable(TreeMap<Integer,TranslationEntry> pageTable) {
 		Lib.assertTrue(!usingTLB);
 	
+Lib.debug(dbgProcessor, "page table set");		
+		
 		this.translations = pageTable;
     }
 
@@ -320,12 +320,27 @@ public final class Processor {
 	
 		// if not using a TLB, then the vpn is an index into the table
 		if (!usingTLB) {
+			
+			Lib.debug(dbgProcessor, "vpn " + vpn + " translations.keySet().size() " + translations.keySet().size());
+			
 		    if (translations == null || vpn >= translations.keySet().size() ||
 			translations.get(vpn) == null ||
 			!translations.get(vpn).valid) {		    	
-			privilege.stats.numPageFaults++;
-			Lib.debug(dbgProcessor, "\t\tpage fault");
-			throw new MipsException(exceptionPageFault, vaddr);
+		    	
+			    	for(Integer v : translations.keySet()){
+			    		Lib.debug('p', "vpn " + v + " ppn " + translations.get(v).ppn +" " +
+			    				new String(mainMemory,translations.get(v).ppn*pageSize,pageSize));		    
+			    	}
+			    
+			    	StackTraceElement[] steAry = new Exception().getStackTrace();
+			    	for(StackTraceElement ste:steAry){
+			    		Lib.debug(dbgDisassemble, ste.getClassName()+":"+ste.getMethodName());
+			    	}
+			    	
+			    	
+				privilege.stats.numPageFaults++;
+				Lib.debug(dbgProcessor, "\t\tpage fault");
+				throw new MipsException(exceptionPageFault, vaddr);
 		    }
 	
 		    entry = translations.get(vpn);
@@ -382,20 +397,26 @@ public final class Processor {
      * @exception	MipsException	if a translation error occurred.
      */
     private int readMem(int vaddr, int size) throws MipsException {
-	if (Lib.test(dbgProcessor))
-	    System.out.println("\treadMem vaddr=0x" + Lib.toHexString(vaddr)
-			       + ", size=" + size);
-
-	Lib.assertTrue(size==1 || size==2 || size==4);
+		if (Lib.test(dbgProcessor))
+		    System.out.println("\treadMem vaddr=0x" + Lib.toHexString(vaddr)
+				       + ", size=" + size);
 	
-	int value = Lib.bytesToInt(mainMemory, translate(vaddr, size, false),
-				   size);
-
-	if (Lib.test(dbgProcessor))
-	    System.out.println("\t\tvalue read=0x" +
-			       Lib.toHexString(value, size*2));
+		Lib.assertTrue(size==1 || size==2 || size==4);
+		
+//int tmpAddr = translate(vaddr, size, false);
+//Lib.debug(dbgDisassemble, "paddr is " + tmpAddr);
+//for(int i=0; i< tmpAddr+4;i=i+4){
+//	System.out.println(mainMemory[i]+ " " +mainMemory[i+1]+" "+mainMemory[i+2]+" "+mainMemory[i+3]);
+//}
+		
+		int value = Lib.bytesToInt(mainMemory, translate(vaddr, size, false),
+					   size);
 	
-	return value;
+		if (Lib.test(dbgProcessor))
+		    System.out.println("\t\tvalue read=0x" +
+				       Lib.toHexString(value, size*2));
+		
+		return value;
     }
     
     /**
@@ -409,15 +430,15 @@ public final class Processor {
      */
     private void writeMem(int vaddr, int size, int value)
 	throws MipsException {
-	if (Lib.test(dbgProcessor))
-	    System.out.println("\twriteMem vaddr=0x" + Lib.toHexString(vaddr)
-			       + ", size=" + size + ", value=0x"
-			       + Lib.toHexString(value, size*2));
-
-	Lib.assertTrue(size==1 || size==2 || size==4);
+		if (Lib.test(dbgProcessor))
+		    System.out.println("\twriteMem vaddr=0x" + Lib.toHexString(vaddr)
+				       + ", size=" + size + ", value=0x"
+				       + Lib.toHexString(value, size*2));
 	
-	Lib.bytesFromInt(mainMemory, translate(vaddr, size, true), size,
-			 value);
+		Lib.assertTrue(size==1 || size==2 || size==4);
+		
+		Lib.bytesFromInt(mainMemory, translate(vaddr, size, true), size,
+				 value);
     }
 
     /**
@@ -459,7 +480,7 @@ public final class Processor {
      * on to the next instruction.
      */
     public void advancePC() {
-	advancePC(registers[regNextPC]+4);
+    	advancePC(registers[regNextPC]+4);
     }
 
     /**
@@ -469,8 +490,8 @@ public final class Processor {
      * @param	nextPC	the new value of the nextPC register.
      */
     private void advancePC(int nextPC) {
-	registers[regPC] = registers[regNextPC];
-	registers[regNextPC] = nextPC;
+		registers[regPC] = registers[regNextPC];
+		registers[regNextPC] = nextPC;
     }
 
     /** Caused by a syscall instruction. */
@@ -633,6 +654,12 @@ public final class Processor {
 	    return Lib.test(flag, flags);
 	}
 
+	private void printRegister() {
+		for(int i=0;i<registers.length;i++){
+			Lib.debug(dbgDisassemble, "registers["+i+"] : " + registers[i]);
+		}
+	}
+	
 	private void fetch() throws MipsException {
 	    if ((Lib.test(dbgDisassemble) && !Lib.test(dbgProcessor)) ||
 		Lib.test(dbgFullDisassemble))
@@ -640,6 +667,10 @@ public final class Processor {
 				 + "\t");
 
 	    value = readMem(registers[regPC], 4);
+	    
+	    //printRegister();
+	    Lib.debug(dbgDisassemble, "regPC " + regPC+" registers[regPC] "+registers[regPC]+
+	    		" inst value is " + value);
 	}
 	
 	private void decode() {
@@ -1034,36 +1065,38 @@ public final class Processor {
 	private void writeBack() throws MipsException {
 	    // if instruction is signed, but carry bit !+ sign bit, throw
 	    if (test(Mips.OVERFLOW) && Lib.test(dst,31) != Lib.test(dst,32))
-		throw new MipsException(exceptionOverflow);
+	    	throw new MipsException(exceptionOverflow);
 
 	    if (test(Mips.DELAYEDLOAD))
-		delayedLoad(dstReg, (int) dst, mask);
+	    	delayedLoad(dstReg, (int) dst, mask);
 	    else
-		finishLoad();
+	    	finishLoad();
 
 	    if (test(Mips.LINK))
-		dst = nextPC;
+	    	dst = nextPC;
 
 	    if (test(Mips.DST) && dstReg != 0)
-		registers[dstReg] = (int) dst;
+	    	registers[dstReg] = (int) dst;
 
 	    if ((test(Mips.DST) || test(Mips.DELAYEDLOAD)) && dstReg != 0) {
-		if (Lib.test(dbgFullDisassemble)) {
-		    System.out.print("#0x" + Lib.toHexString((int) dst));
-		    if (test(Mips.DELAYEDLOAD))
-			System.out.print(" (delayed load)");
-		}
+			if (Lib.test(dbgFullDisassemble)) {
+			    System.out.print("#0x" + Lib.toHexString((int) dst));
+			    if (test(Mips.DELAYEDLOAD))
+				System.out.print(" (delayed load)");
+			}
 	    }
 
 	    if (test(Mips.BRANCH) && branch) {
-		nextPC = jtarget;
+	    	nextPC = jtarget;
 	    }
 
+Lib.debug(dbgDisassemble, "advancePC " + nextPC);	    
+	    
 	    advancePC(nextPC);
 
 	    if ((Lib.test(dbgDisassemble) && !Lib.test(dbgProcessor)) ||
-		Lib.test(dbgFullDisassemble))
-		System.out.print("\n");
+	    		Lib.test(dbgFullDisassemble))
+	    	System.out.print("\n");
 	}
     
 	// state used to execute a single instruction

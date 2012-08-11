@@ -93,6 +93,14 @@ public class UserProcess {
     		Lib.debug(dbgProcess, "vpn " + v + " ppn " + pageTable.get(v).ppn);
     	}
     }
+    
+    public void printChildren(){
+    	Lib.debug(dbgProcess, "Pint children Map");
+    	
+    	for(Integer k : childrenMap.keySet()){
+    		Lib.debug(dbgProcess, "child " + k);
+    	}
+    }
 
     /**
      * Save the state of this process in preparation for a context switch.
@@ -107,8 +115,11 @@ public class UserProcess {
      */
     public void restoreState() {
     	Machine.processor().setPageTable(pageTable);
+    	
+    	printPage(0, pageTable.keySet().size());
     }
 
+    
     public void printMemoryString(int a0, int length) {
 		byte[] bytes = new byte[length];
 	
@@ -116,6 +127,17 @@ public class UserProcess {
 	
 		Lib.debug(dbgProcess, "Machine Mem :" + new String(bytes,0,bytesRead));
     }
+    
+    
+    public void printPage(int vpn, int length) {
+    	Lib.debug(dbgProcess, "Print Page: vpn " + vpn+" length " + length);
+    	for(int i = vpn; i < vpn+length; i++){
+    		String str = readVirtualMemoryString(i*pageSize, pageSize);
+    		
+    		Lib.debug(dbgProcess, i + " : " + str);
+    	}
+    } 
+    
     
     /**
      * Read a null-terminated string from this process's virtual memory. Read
@@ -132,22 +154,26 @@ public class UserProcess {
      *		found.
      */
     public String readVirtualMemoryString(int vaddr, int maxLength) {
-	Lib.assertTrue(maxLength >= 0);
-
-	byte[] bytes = new byte[maxLength+1];
-
-	int bytesRead = readVirtualMemory(vaddr, bytes);
-
-	for (int length=0; length<bytesRead; length++) {
-	    if (bytes[length] == 0){
-	    
-	    	Lib.debug(dbgProcess, "##elton## " + new String(bytes, 0, length));
-	    	
-	    	return new String(bytes, 0, length);
-	    }
-	}
-
-	return null;
+		Lib.assertTrue(maxLength >= 0);
+	
+		byte[] bytes = new byte[maxLength+1];
+	
+		int bytesRead = readVirtualMemory(vaddr, bytes);
+	
+		int length = 0;
+		for (; length<bytesRead; length++) {
+		    if (bytes[length] == 0){
+		    	return new String(bytes, 0, length);
+		    }
+		}
+	
+		// if there's no 0 in the string (i.e. string is not truncted)
+		if(length == maxLength + 1) {
+			bytes[maxLength] = 0;
+			return new String(bytes, 0, length);
+		}
+		
+		return null;
     }
 
     /**
@@ -218,13 +244,12 @@ public class UserProcess {
 				else
 					thisRead = pageSize;
 			}
-			
-			Lib.debug(dbgProcess, "##elton## paddr " + paddr + " destOffset "
-					+destOffset+" thisRead " + thisRead + " totalRead " + totalRead);
-			
-			System.arraycopy(memory, paddr, data, destOffset, thisRead);
-			
+
 			totalRead += thisRead;
+			
+			Lib.debug(dbgProcess, "paddr " + paddr +" destOffset " + destOffset + " thisRead " + thisRead);
+			
+			System.arraycopy(memory, paddr, data, destOffset, thisRead);			
 		}
 	
 		return totalRead;
@@ -322,95 +347,100 @@ public class UserProcess {
      * @return	<tt>true</tt> if the executable was successfully loaded.
      */
     private boolean load(String name, String[] args) {
-	Lib.debug(dbgProcess, "UserProcess.load(\"" + name + "\")");
-	
-	OpenFile executable = ThreadedKernel.fileSystem.open(name, false);
-	if (executable == null) {
-	    Lib.debug(dbgProcess, "\topen failed");
-	    return false;
-	}
-
-	try {
-	    coff = new Coff(executable);
-	}
-	catch (EOFException e) {
-	    executable.close();
-	    Lib.debug(dbgProcess, "\tcoff load failed");
-	    return false;
-	}
-
-	// make sure the sections are contiguous and start at page 0
-	numPages = 0;
-	for (int s=0; s<coff.getNumSections(); s++) {
-	    CoffSection section = coff.getSection(s);
-	    
-	    if (section.getFirstVPN() != numPages) {
-			coff.close();
-			Lib.debug(dbgProcess, "\tfragmented executable");
-			return false;
-	    }
-	    
-	    numPages += section.getLength();
-	}
-
-	// make sure the argv array will fit in one page
-	byte[][] argv = new byte[args.length][];
-	int argsSize = 0;
-	
-	for (int i=0; i<args.length; i++) {
+		Lib.debug(dbgProcess, "UserProcess.load(\"" + name + "\")");
 		
-Lib.debug(dbgProcess, "args " + i +": " + args[i]);
+		OpenFile executable = ThreadedKernel.fileSystem.open(name, false);
+		if (executable == null) {
+		    Lib.debug(dbgProcess, "\topen failed");
+		    return false;
+		}
+	
+		try {
+		    coff = new Coff(executable);
+		}
+		catch (EOFException e) {
+		    executable.close();
+		    Lib.debug(dbgProcess, "\tcoff load failed");
+		    return false;
+		}
+	
+		// make sure the sections are contiguous and start at page 0
+		numPages = 0;
+		for (int s=0; s<coff.getNumSections(); s++) {
+		    CoffSection section = coff.getSection(s);
+		    
+		    if (section.getFirstVPN() != numPages) {
+				coff.close();
+				Lib.debug(dbgProcess, "\tfragmented executable");
+				return false;
+		    }
+		    
+		    numPages += section.getLength();
+		}
+	
+		// make sure the argv array will fit in one page
+		byte[][] argv = new byte[args.length][];
+		int argsSize = 0;
 		
-	    argv[i] = args[i].getBytes();
-	    // 4 bytes for argv[] pointer; then string plus one for null byte
-	    argsSize += 4 + argv[i].length + 1;
-	}
-	
-Lib.debug(dbgProcess, "argsSize is " + argsSize);	
-	
-	if (argsSize > pageSize) {
-	    coff.close();
-	    Lib.debug(dbgProcess, "\targuments too long");
-	    return false;
-	}
-
-	// program counter initially points at the program entry point
-	initialPC = coff.getEntryPoint();	
-
-	// next comes the stack; stack pointer initially points to top of it
-	numPages += stackPages;
-	initialSP = numPages*pageSize;
-
-	// and finally reserve 1 page for arguments
-	numPages++;
-
-	if (!loadSections())
-	    return false;
-
-	// store arguments in last page
-	int entryOffset = (numPages-1)*pageSize;
-	int stringOffset = entryOffset + args.length*4;
-
-	this.argc = args.length;
-	this.argv = entryOffset;
-	
-Lib.debug(dbgProcess, "argv length is " + argv.length);
-	
-	for (int i=0; i<argv.length; i++) {	
+		for (int i=0; i<args.length; i++) {
+			
+	Lib.debug(dbgProcess, "args " + i +": " + args[i]);
+			
+		    argv[i] = args[i].getBytes();
+		    // 4 bytes for argv[] pointer; then string plus one for null byte
+		    argsSize += 4 + argv[i].length + 1;
+		}
 		
-Lib.debug(dbgProcess, "argv[" + i +"] is " + new String(argv[i]));
+	Lib.debug(dbgProcess, "argsSize is " + argsSize);	
 		
-	    byte[] stringOffsetBytes = Lib.bytesFromInt(stringOffset);
-	    Lib.assertTrue(writeVirtualMemory(entryOffset,stringOffsetBytes) == 4);
-	    entryOffset += 4;
-	    Lib.assertTrue(writeVirtualMemory(stringOffset, argv[i]) ==
-		       argv[i].length);
-	    stringOffset += argv[i].length;
-	    Lib.assertTrue(writeVirtualMemory(stringOffset,new byte[] { 0 }) == 1);
-	    stringOffset += 1;
-	}
+		if (argsSize > pageSize) {
+		    coff.close();
+		    Lib.debug(dbgProcess, "\targuments too long");
+		    return false;
+		}
+	
+		// program counter initially points at the program entry point
+		initialPC = coff.getEntryPoint();	
+	
+		// next comes the stack; stack pointer initially points to top of it
+		numPages += stackPages;
+		initialSP = numPages*pageSize;
+	
+		// and finally reserve 1 page for arguments
+		numPages++;
+	
+Lib.debug(dbgProcess, "initialPC "+ initialPC +" initialSP " + initialSP);		
+		
+		if (!loadSections())
+		    return false;
+	
+		// store arguments in last page
+		int entryOffset = (numPages-1)*pageSize;
+		int stringOffset = entryOffset + args.length*4;
+	
+		this.argc = args.length;
+		this.argv = entryOffset;
+		
+	Lib.debug(dbgProcess, "argv length is " + argv.length);
+		
+		for (int i=0; i<argv.length; i++) {	
+			
+	Lib.debug(dbgProcess, "argv[" + i +"] is " + new String(argv[i]));
+			
+		    byte[] stringOffsetBytes = Lib.bytesFromInt(stringOffset);
+		    Lib.assertTrue(writeVirtualMemory(entryOffset,stringOffsetBytes) == 4);
+		    entryOffset += 4;
+		    Lib.assertTrue(writeVirtualMemory(stringOffset, argv[i]) ==
+			       argv[i].length);
+		    stringOffset += argv[i].length;
+		    Lib.assertTrue(writeVirtualMemory(stringOffset,new byte[] { 0 }) == 1);
+		    stringOffset += 1;
+		}
 
-	return true;
+Lib.debug(dbgProcess, "Finish Load");
+printPageTable();
+		
+		return true;
     }
 
     /**
@@ -491,6 +521,7 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + new String(argv[i]));
 		    processor.writeRegister(i, 0);
 	
 		// initialize PC and SP according
+		Lib.debug('p', "regPC set  " + initialPC);
 		processor.writeRegister(Processor.regPC, initialPC);
 		processor.writeRegister(Processor.regSP, initialSP);
 	
@@ -708,16 +739,16 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + new String(argv[i]));
         
         String[] argv = new String[argc];
         
-        Lib.debug(dbgProcess, "argc " + argc + ", a_argv " + a_argv);        
+        Lib.debug(dbgProcess, "filename " + filename + " argc " + argc + ", a_argv " + a_argv);        
         
         int vaddr = a_argv;
         String currArg;
         for(int i=0;i<argc;i++){
-        	currArg = readVirtualMemoryString(vaddr, 256);
+        	currArg = readVirtualMemoryString(vaddr, 64);
         	
         	argv[i] = currArg;
-        	// assign 256 chars for each arg
-        	vaddr += 256;
+        	// assign 64 chars for each arg
+        	vaddr += 64;
         	
         	Lib.debug(dbgProcess, "argv" +i +" "+ argv[i] +", vaddr " + vaddr);        	
         }
@@ -731,6 +762,9 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + new String(argv[i]));
             childProcess.parentPID = this.getPID();
             childrenMap.put(childProcess.getPID(), childProcess);
             childProcess.execute(filename, argv);
+
+Lib.debug(dbgProcess, "childProcess pid " + childProcess.getPID() + " parent pid " + this.getPID());
+printChildren();
 
             return childProcess.getPID();
         }
@@ -755,6 +789,15 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + new String(argv[i]));
      */
     private int handleJoin(int childPID, int statusPtr) {
     	UserProcess child = childrenMap.get(childPID);
+    	
+printChildren();
+
+    	Lib.debug(dbgProcess, "try to get child " + childPID);
+    	
+    	for(Integer c : childrenMap.keySet()) {
+    		Lib.debug(dbgProcess, "child " + c );
+    	}
+    	
     	// only parent is allowed to join this process
     	if(child==null)
     		return -1;
@@ -784,17 +827,18 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + new String(argv[i]));
     	int vpn = startVpn;
     	List<Integer> lstVpn = new ArrayList<Integer>();
     	for(int i=0; i < pages; i++){
-    		vpn += i;
+    		vpn = startVpn + i;
     		
     		pageTable.put(vpn, new TranslationEntry(vpn, UserKernel.allocatePage(), true,false,false,false));
     		lstVpn.add(vpn);
     	}
     	
-    	allocatedSeg.put(vpn, lstVpn);
+    	allocatedSeg.put(startVpn, lstVpn);
     	
-    	Lib.debug(dbgProcess, "allocated vpn : " + vpn + " size : " + pages);
+    	Lib.debug(dbgProcess, "allocated vpn : " + startVpn + " size : " + pages);
     	
-    	return getPhysicAddress(vpn, 0);
+    	// malloc should return virtual addr, rather than phy addr
+    	return startVpn*pageSize;
     }
     
     
@@ -804,8 +848,8 @@ Lib.debug(dbgProcess, "argv[" + i +"] is " + new String(argv[i]));
     	int vpn = vaddr/pageSize;
 
     	Lib.debug(dbgProcess, "free vaddr " + vaddr + " start vpn " + vpn);
-//    	Lib.debug(dbgProcess, "Before free");
-//    	printMemoryString(0, (pageTable.lastKey()+1)*pageSize);
+    	Lib.debug(dbgProcess, "Before free");
+    	printPage(0, pageTable.keySet().size());
     	
     	// get list of vpn to be deallocated
     	List<Integer> lstVpn = allocatedSeg.get(vpn);

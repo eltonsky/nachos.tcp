@@ -50,8 +50,8 @@ public class Coff {
 	    byte[] headers = new byte[headerLength+aoutHeaderLength];
 
 	    if (file.length() < headers.length) {
-		Lib.debug(dbgCoff, "\tfile is not executable");
-		throw new EOFException();
+			Lib.debug(dbgCoff, "\tfile is not executable");
+			throw new EOFException();
 	    }
 
 	    Lib.strictReadFile(file, 0, headers, 0, headers.length);
@@ -62,6 +62,9 @@ public class Coff {
 	    int flags = Lib.bytesToUnsignedShort(headers, 18);
 	    entryPoint = Lib.bytesToInt(headers, headerLength+16);
 
+Lib.debug(dbgCoff, "magic " + magic + " numSections " + numSections + " optionalHeaderLength " +
+		optionalHeaderLength + " flags " + flags + " entryPoint " + entryPoint);	    
+	    
 	    if (magic != 0x0162) {
 		Lib.debug(dbgCoff, "\tincorrect magic number");
 		throw new EOFException();
@@ -79,15 +82,15 @@ public class Coff {
 
 	    sections = new CoffSection[numSections];
 	    for (int s=0; s<numSections; s++) {
-		int sectionEntryOffset = offset + s*CoffSection.headerLength;
-		try {
-		    sections[s] =
-			new CoffSection(file, this, sectionEntryOffset);
-		}
-		catch (EOFException e) {
-		    Lib.debug(dbgCoff, "\terror loading section " + s);
-		    throw e;
-		}
+			int sectionEntryOffset = offset + s*CoffSection.headerLength;
+			try {
+			    sections[s] =
+				new CoffSection(file, this, sectionEntryOffset);
+			}
+			catch (EOFException e) {
+			    Lib.debug(dbgCoff, "\terror loading section " + s);
+			    throw e;
+			}
 	    }
 	}
     }
