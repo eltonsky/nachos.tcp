@@ -27,12 +27,12 @@ public final class TranslationEntry {
      */
     public TranslationEntry(int vpn, int ppn, boolean valid, boolean readOnly,
 			    boolean used, boolean dirty) {
-	this.vpn = vpn;
-	this.ppn = ppn;
-	this.valid = valid;
-	this.readOnly = readOnly;
-	this.used = used;
-	this.dirty = dirty;
+		this.vpn = vpn;
+		this.ppn = ppn;
+		this.valid = valid;
+		this.readOnly = readOnly;
+		this.used = used;
+		this.dirty = dirty;
     }       
 
     /**

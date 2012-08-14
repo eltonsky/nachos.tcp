@@ -496,13 +496,13 @@ public final class Lib {
      * @return	the loaded class.
      */
     public static Class loadClass(String className) {
-	try {
-	    return ClassLoader.getSystemClassLoader().loadClass(className);
-	}
-	catch (Throwable e) {
-	    Machine.terminate(e);
-	    return null;
-	}
+		try {
+		    return ClassLoader.getSystemClassLoader().loadClass(className);
+		}
+		catch (Throwable e) {
+		    Machine.terminate(e);
+		    return null;
+		}
     }
 
     /**

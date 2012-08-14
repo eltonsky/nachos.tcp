@@ -79,12 +79,18 @@ public class UserProcess {
 		if (!load(name, args))
 		    return false;
 		
-		UThread userthread = new UThread(this);
-		this.userThread = userthread;
-		userthread.setName(name).fork();
+		this.userThread = createUserThread();
+		this.userThread.setName(name).fork();
 	
 		return true;
     }
+    
+    
+    public UThread createUserThread() {
+    	UThread userthread =  new UThread(this);
+    	return userthread;
+    }
+    
     
     public void printPageTable(){
     	Lib.debug(dbgProcess, "Page Table : " + pageTable.keySet().size());
@@ -533,7 +539,7 @@ printPageTable();
     /**
      * Handle the halt() system call. 
      */
-    private int handleHalt() {
+    protected int handleHalt() {
 
     	// only main process is allowed to call halt.
     	if(pid != 0){
@@ -552,7 +558,7 @@ printPageTable();
      * @param a0 the virtual memory address of the filename string.
      * @return the new file descriptor on success, or -1 on failure.
      */
-    private int handleCreate(int a0){
+    protected int handleCreate(int a0){
     	//printMemoryString(a0);
     	
         String filename = readVirtualMemoryString(a0, 256);
@@ -700,7 +706,7 @@ printPageTable();
      * @param a0
      * @return
      */
-    private int handleUnlink(int a0){
+    protected int handleUnlink(int a0){
         String filename = readVirtualMemoryString(a0, 256);
         if(filename == null){
                 return -1;
@@ -733,7 +739,7 @@ printPageTable();
 	 * exec() returns the child process's process ID, which can be passed to
 	 * join(). On error, returns -1.
      */
-    private int handleExec(int a_file, int argc, int a_argv){
+    protected int handleExec(int a_file, int argc, int a_argv){
         String filename = readVirtualMemoryString(a_file, 256);
         byte[] b = new byte[256];
         
@@ -762,10 +768,6 @@ printPageTable();
             childProcess.parentPID = this.getPID();
             childrenMap.put(childProcess.getPID(), childProcess);
             childProcess.execute(filename, argv);
-
-Lib.debug(dbgProcess, "childProcess pid " + childProcess.getPID() + " parent pid " + this.getPID());
-printChildren();
-
             return childProcess.getPID();
         }
 	}
@@ -787,7 +789,7 @@ printChildren();
 	 * an unhandled exception, returns 0. If processID does not refer to a child
 	 * process of the current process, returns -1.
      */
-    private int handleJoin(int childPID, int statusPtr) {
+    protected int handleJoin(int childPID, int statusPtr) {
     	UserProcess child = childrenMap.get(childPID);
     	
 printChildren();
@@ -819,7 +821,7 @@ printChildren();
     
     
     
-    private int handleMalloc(int size) {
+    protected int handleMalloc(int size) {
     	int pages = (size / pageSize) + (size%pageSize==0?0:1) ;
     	
     	int startVpn = pageTable.keySet().size();
@@ -842,7 +844,7 @@ printChildren();
     }
     
     
-    private void handleFree(int vaddr) {
+    protected void handleFree(int vaddr) {
     	// coz malloc allocates from the begin of a page, the vaddr must
     	// starts from a page as well.
     	int vpn = vaddr/pageSize;
@@ -877,7 +879,7 @@ printChildren();
 	 *
 	 * exit() never returns.
      */
-    private void handleExit(int status) {
+    protected void handleExit(int status) {
     	// ensure current thread is this thread, we try to finish current thread.
     	Lib.assertTrue(UThread.currentThread().getId() == this.userThread.getId());
     	
@@ -907,7 +909,7 @@ printChildren();
     	
     }
 
-    private static final int
+    protected static final int
         syscallHalt = 0,
 		syscallExit = 1,
 		syscallExec = 2,
@@ -1058,13 +1060,13 @@ printChildren();
     private int initialPC, initialSP;
     private int argc, argv;
     private int pid;
-    private int parentPID;
+    protected int parentPID;
     private UThread userThread;
     // syscall exit() will put exitStatus in process; and join() will load this exitStatus to *status.
     private int exitStatus;
     // if this child is exited
     private boolean exited = false;
-    private HashMap<Integer,UserProcess> childrenMap = new HashMap<Integer,UserProcess>();
+    protected HashMap<Integer,UserProcess> childrenMap = new HashMap<Integer,UserProcess>();
     
     
     private static final int MAX_PROCESS_NUM = 32768;

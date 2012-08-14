@@ -5,6 +5,8 @@ package nachos.machine;
 import java.util.TreeMap;
 
 import nachos.security.*;
+import nachos.vm.*;
+import nachos.vm.InvertedPageTable;
 
 /**
  * The <tt>Processor</tt> class simulates a MIPS processor that supports a
@@ -50,9 +52,12 @@ public final class Processor {
 		mainMemory = new byte[pageSize * numPhysPages];
 	
 		if (usingTLB) {
-		    translations = new TreeMap<Integer,TranslationEntry>();
-		    for (int i=0; i<tlbSize; i++)
-		    	translations.put(i,new TranslationEntry());
+//		    translations = new TreeMap<Integer,TranslationEntry>();
+//		    for (int i=0; i<tlbSize; i++)
+//		    	translations.put(-1,new TranslationEntry());
+			
+			//tlb = new TLB("nachos.vm.InvertedPageTable","nachos.vm.RandomReplace");
+			tlb = new TLB(new InvertedPageTable(tlbSize), new RandomReplace(tlbSize));
 		}
 		else {
 		    translations = null;
@@ -326,7 +331,7 @@ Lib.debug(dbgProcessor, "page table set");
 		    if (translations == null || vpn >= translations.keySet().size() ||
 			translations.get(vpn) == null ||
 			!translations.get(vpn).valid) {		    	
-		    	
+		    		// log for debug on page fault.
 			    	for(Integer v : translations.keySet()){
 			    		Lib.debug('p', "vpn " + v + " ppn " + translations.get(v).ppn +" " +
 			    				new String(mainMemory,translations.get(v).ppn*pageSize,pageSize));		    
@@ -347,13 +352,15 @@ Lib.debug(dbgProcessor, "page table set");
 		}
 		// else, look through all TLB entries for matching vpn
 		else {
-		    for (int i=0; i<tlbSize; i++) {
-				if (translations.get(i).valid && translations.get(i).vpn == vpn) {
-				    entry = translations.get(i);
-				    break;
-				}
-		    }
+//		    for (int i=0; i<tlbSize; i++) {
+//				if (translations.get(i).valid && translations.get(i).vpn == vpn) {
+//				    entry = translations.get(i);
+//				    break;
+//				}
+//		    }
 		    
+			entry = tlb.get(-1,vpn);
+			
 		    if (entry == null) {
 				privilege.stats.numTLBMisses++;
 				Lib.debug(dbgProcessor, "\t\tTLB miss");
@@ -387,6 +394,10 @@ Lib.debug(dbgProcessor, "page table set");
 		return paddr;
     }
 
+    public TLB getTLB(){
+    	return tlb;
+    }
+    
     /**
      * Read </i>size</i> (1, 2, or 4) bytes of virtual memory at <i>vaddr</i>,
      * and return the result.
@@ -494,6 +505,9 @@ Lib.debug(dbgProcessor, "page table set");
 		registers[regNextPC] = nextPC;
     }
 
+
+    private static TLB tlb;
+    
     /** Caused by a syscall instruction. */
     public static final int exceptionSyscall = 0;
     /** Caused by an access to an invalid virtual page. */
