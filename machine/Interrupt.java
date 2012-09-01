@@ -47,13 +47,13 @@ public final class Interrupt {
      *				machine.
      */
     public Interrupt(Privilege privilege) {
-	System.out.print(" interrupt");
-	
-	this.privilege = privilege;
-	privilege.interrupt = new InterruptPrivilege();
-	
-	enabled = false;
-	pending = new TreeSet<PendingInterrupt>();
+		System.out.print(" interrupt");
+		
+		this.privilege = privilege;
+		privilege.interrupt = new InterruptPrivilege();
+		
+		enabled = false;
+		pending = new TreeSet<PendingInterrupt>();
     }
 
     /**
@@ -61,7 +61,7 @@ public final class Interrupt {
      * <tt>setStatus(true)</tt>.
      */    
     public void enable() {
-	setStatus(true);
+    	setStatus(true);
     }
 
     /**
@@ -93,13 +93,13 @@ public final class Interrupt {
      * @return			<tt>true</tt> if interrupts were enabled.
      */
     public boolean setStatus(boolean status) {
-	boolean oldStatus = enabled;
-	enabled = status;
+		boolean oldStatus = enabled;
+		enabled = status;
+		
+		if (oldStatus == false && status == true)
+		    tick(true);
 	
-	if (oldStatus == false && status == true)
-	    tick(true);
-
-	return oldStatus;
+		return oldStatus;
     }
 
     /**
@@ -121,70 +121,75 @@ public final class Interrupt {
     }
 
     private void schedule(long when, String type, Runnable handler) {
-	Lib.assertTrue(when>0);
+		Lib.assertTrue(when>0);
+		
+		long time = privilege.stats.totalTicks + when;
+		PendingInterrupt toOccur = new PendingInterrupt(time, type, handler);
 	
-	long time = privilege.stats.totalTicks + when;
-	PendingInterrupt toOccur = new PendingInterrupt(time, type, handler);
-
-	Lib.debug(dbgInt,
-		  "Scheduling the " + type +
-		  " interrupt handler at time = " + time);
-
-	pending.add(toOccur);
+		Lib.debug(dbgInt,
+			  "Scheduling the " + type +
+			  " interrupt handler at time = " + time);
+	
+		pending.add(toOccur);
     }
 
     private void tick(boolean inKernelMode) {
-	Stats stats = privilege.stats;
+		Stats stats = privilege.stats;
+	
+		if (inKernelMode) {
+		    stats.kernelTicks += Stats.KernelTick;
+		    stats.totalTicks += Stats.KernelTick;
+		}
+		else {
+		    stats.userTicks += Stats.UserTick;
+		    stats.totalTicks += Stats.UserTick;
+		}
+	
+		if (Lib.test(dbgInt))
+		    System.out.println("== Tick " + stats.totalTicks + " ==");
+	
+//StackTraceElement[] ste = new Exception().getStackTrace();
+//for(StackTraceElement st : ste) {
+//	Lib.debug(dbgInt, st.getClassName()+">"+st.getMethodName());
+//}		    
 
-	if (inKernelMode) {
-	    stats.kernelTicks += Stats.KernelTick;
-	    stats.totalTicks += Stats.KernelTick;
-	}
-	else {
-	    stats.userTicks += Stats.UserTick;
-	    stats.totalTicks += Stats.UserTick;
-	}
-
-	if (Lib.test(dbgInt))
-	    System.out.println("== Tick " + stats.totalTicks + " ==");
-
-	enabled = false;
-	checkIfDue();
-	enabled = true;
+		enabled = false;
+		checkIfDue();
+		enabled = true;
     }
 
     private void checkIfDue() {
-	long time = privilege.stats.totalTicks;
-
-	Lib.assertTrue(disabled());
-
-	if (Lib.test(dbgInt))
-	    print();
-
-	if (pending.isEmpty())
-	    return;
-
-	if (((PendingInterrupt) pending.first()).time > time)
-	    return;
-
-	Lib.debug(dbgInt, "Invoking interrupt handlers at time = " + time);
+		long time = privilege.stats.totalTicks;
 	
-	while (!pending.isEmpty() &&
-	       ((PendingInterrupt) pending.first()).time <= time) {
-	    PendingInterrupt next = (PendingInterrupt) pending.first();
-	    pending.remove(next);
-
-	    Lib.assertTrue(next.time <= time);
-
-	    if (privilege.processor != null)
-		privilege.processor.flushPipe();
-
-	    Lib.debug(dbgInt, "  " + next.type);
-			
-	    next.handler.run();
-	}
-
-	Lib.debug(dbgInt, "  (end of list)");
+		Lib.assertTrue(disabled());
+	
+		if (Lib.test(dbgInt))
+		    print();
+	
+		if (pending.isEmpty())
+		    return;
+	
+		if (((PendingInterrupt) pending.first()).time > time)
+		    return;
+	
+		Lib.debug(dbgInt, "Invoking interrupt handlers at time = " + time);
+		
+		while (!pending.isEmpty() &&
+		       ((PendingInterrupt) pending.first()).time <= time) {
+		    PendingInterrupt next = (PendingInterrupt) pending.first();
+		    pending.remove(next);
+	
+		    Lib.assertTrue(next.time <= time);
+	
+		    if (privilege.processor != null)
+			privilege.processor.flushPipe();
+	
+		    Lib.debug(dbgInt, "  " + next.type);
+				
+		    next.handler.run();
+		}
+	
+		Lib.debug(dbgInt, "  (end of list)");
     }
 
     private void print() {
@@ -242,12 +247,12 @@ public final class Interrupt {
     private static final char dbgInt = 'i';
 
     private class InterruptPrivilege implements Privilege.InterruptPrivilege {
-	public void schedule(long when, String type, Runnable handler) {
-	    Interrupt.this.schedule(when, type, handler);
-	}
-
-	public void tick(boolean inKernelMode) {
-	    Interrupt.this.tick(inKernelMode);
-	}
+		public void schedule(long when, String type, Runnable handler) {
+		    Interrupt.this.schedule(when, type, handler);
+		}
+	
+		public void tick(boolean inKernelMode) {
+		    Interrupt.this.tick(inKernelMode);
+		}
     }
 }

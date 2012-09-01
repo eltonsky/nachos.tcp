@@ -28,18 +28,24 @@ public class StubFileSystem implements FileSystem {
     }
     
     public OpenFile open(String name, boolean truncate) {
-	if (!checkName(name))
-	    return null;
-	
-	delay();
-	
-	try {
-	    return new StubOpenFile(name, truncate);
-	}
-	catch (IOException e) {
-	    return null;
-	}
+		if (!checkName(name))
+		    return null;
+		
+		delay();
+		
+		try {
+		    return new StubOpenFile(name, truncate);
+		}
+		catch (IOException e) {
+		    return null;
+		}
     }
+    
+    
+    public boolean exists(String name){
+    	return (new File(name)).exists();
+    }
+    
     
     public boolean remove(String name) {
 	if (!checkName(name))
@@ -66,10 +72,10 @@ public class StubFileSystem implements FileSystem {
     }
 
     private void delay() {
-	long time = Machine.timer().getTime();
-	int amount = 1000;
-	ThreadedKernel.alarm.waitUntil(amount);
-	Lib.assertTrue(Machine.timer().getTime() >= time+amount);
+//		long time = Machine.timer().getTime();
+//		int amount = 1000;
+//		ThreadedKernel.alarm.waitUntil(amount);
+//		Lib.assertTrue(Machine.timer().getTime() >= time+amount);
     }
 
     private class StubOpenFile extends OpenFileWithPosition {
@@ -78,7 +84,7 @@ public class StubFileSystem implements FileSystem {
 	    super(StubFileSystem.this, name);
 
 	    final File f = new File(directory, name);
-
+	    
 	    if (openCount == maxOpenFiles)
 		throw new IOException();
 
@@ -182,15 +188,15 @@ public class StubFileSystem implements FileSystem {
     private File directory;
 
     private static boolean checkName(String name) {
-	char[] chars = name.toCharArray();
-
-	for (int i=0; i<chars.length; i++) {
-	    if (chars[i] < 0 || chars[i] >= allowedFileNameCharacters.length)
-		return false;
-	    if (!allowedFileNameCharacters[(int) chars[i]])
-		return false;
-	}
-	return true;
+		char[] chars = name.toCharArray();
+	
+		for (int i=0; i<chars.length; i++) {
+		    if (chars[i] < 0 || chars[i] >= allowedFileNameCharacters.length)
+			return false;
+		    if (!allowedFileNameCharacters[(int) chars[i]])
+			return false;
+		}
+		return true;
     }
 
     private static boolean[] allowedFileNameCharacters = new boolean[0x80];

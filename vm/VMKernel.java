@@ -13,7 +13,9 @@ public class VMKernel extends UserKernel {
      * Allocate a new VM kernel.
      */
     public VMKernel() {
-	super();
+    	super();
+    	
+    	swap = SwapFile.getSwapFile();
     }
 
     /**
@@ -43,9 +45,15 @@ public class VMKernel extends UserKernel {
     public void terminate() {
 	super.terminate();
     }
+    
+    public static SwapFile getSwap(){
+    	return swap;
+    }
 
     // dummy variables to make javac smarter
     private static VMProcess dummy1 = null;
 
     private static final char dbgVM = 'v';
+    
+    private static SwapFile swap;
 }

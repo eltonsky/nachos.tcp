@@ -35,6 +35,7 @@ public class ThreadedKernel extends Kernel {
 	// start threading
 	new KThread(null);
 
+	//comment out to disable alarm; uncomment this if want alarm.
 	alarm  = new Alarm();
 
 	Machine.interrupt().enable();

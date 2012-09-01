@@ -388,11 +388,11 @@ public final class Machine {
      * @return	the name of the shell program to run.
      */
     public static String getShellProgramName() {
-	if (shellProgramName == null)
-	    shellProgramName = Config.getString("Kernel.shellProgram");
-
-	Lib.assertTrue(shellProgramName != null);
-	return shellProgramName;
+		if (shellProgramName == null)
+		    shellProgramName = Config.getString("Kernel.shellProgram");
+	
+		Lib.assertTrue(shellProgramName != null);
+		return shellProgramName;
     }
 
     private static String shellProgramName = null;
@@ -446,7 +446,7 @@ public final class Machine {
 
     private static Stats stats = new Stats();
 
-    private static int numPhysPages = -1;
+    public static int numPhysPages = -1;
     private static long randomSeed = 0;
 
     private static File baseDirectory, nachosDirectory, testDirectory;

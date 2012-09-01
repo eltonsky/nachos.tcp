@@ -233,17 +233,17 @@ public class KThread {
      * called with interrupts disabled.
      */
     public static void yield() {
-	Lib.debug(dbgThread, "Yielding thread: " + currentThread.toString());
+		Lib.debug(dbgThread, "Yielding thread: " + currentThread.toString());
+		
+		Lib.assertTrue(currentThread.status == statusRunning);
+		
+		boolean intStatus = Machine.interrupt().disable();
 	
-	Lib.assertTrue(currentThread.status == statusRunning);
+		currentThread.ready();
 	
-	boolean intStatus = Machine.interrupt().disable();
-
-	currentThread.ready();
-
-	runNextThread();
-	
-	Machine.interrupt().restore(intStatus);
+		runNextThread();
+		
+		Machine.interrupt().restore(intStatus);
     }
 
     /**
@@ -375,20 +375,20 @@ public class KThread {
      *				thread.
      */
     private void run() {
-	Lib.assertTrue(Machine.interrupt().disabled());
-
-	Machine.yield();
-
-	currentThread.saveState();
-
-	Lib.debug(dbgThread, "Switching from: " + currentThread.toString()
-		  + " to: " + toString());
-
-	currentThread = this;
-
-	tcb.contextSwitch();
-
-	currentThread.restoreState();
+		Lib.assertTrue(Machine.interrupt().disabled());
+	
+		Machine.yield();
+	
+		currentThread.saveState();
+	
+		Lib.debug(dbgThread, "Switching from: " + currentThread.toString()
+			  + " to: " + toString());
+	
+		currentThread = this;
+	
+		tcb.contextSwitch();
+	
+		currentThread.restoreState();
     }
 
     /**

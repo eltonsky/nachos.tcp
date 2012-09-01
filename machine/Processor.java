@@ -6,7 +6,6 @@ import java.util.TreeMap;
 
 import nachos.security.*;
 import nachos.vm.*;
-import nachos.vm.InvertedPageTable;
 
 /**
  * The <tt>Processor</tt> class simulates a MIPS processor that supports a
@@ -654,6 +653,14 @@ Lib.debug(dbgProcessor, "page table set");
 
     private class Instruction {
 	public void run() throws MipsException {
+		/*
+		 *  To beat double TLB miss live lock, avoid
+		 *  context switch during a inst. An inst should
+		 *  be atomic anyway
+		 */
+		
+		boolean intStatus = Machine.interrupt().disable();
+		
 	    // hopefully this looks familiar to 152 students?
 	    fetch();
 	    
@@ -662,6 +669,8 @@ Lib.debug(dbgProcessor, "page table set");
 	    execute();
 	    
 	    writeBack();
+	    
+	    Machine.interrupt().restore(intStatus);
 	}	
 
 	private boolean test(int flag) {
@@ -1104,8 +1113,6 @@ Lib.debug(dbgProcessor, "page table set");
 	    	nextPC = jtarget;
 	    }
 
-Lib.debug(dbgDisassemble, "advancePC " + nextPC);	    
-	    
 	    advancePC(nextPC);
 
 	    if ((Lib.test(dbgDisassemble) && !Lib.test(dbgProcessor)) ||

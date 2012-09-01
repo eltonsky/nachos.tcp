@@ -194,7 +194,7 @@ public final class Lib {
 	long startTime = Machine.timer().getTime();
 	assertTrue(file.read(position, buf, offset, length) == length);
 	long finishTime = Machine.timer().getTime();
-	assertTrue(finishTime>startTime);	
+	//assertTrue(finishTime>startTime);	
     }
 
     /**

@@ -66,16 +66,16 @@ public class Alarm {
      * @see	nachos.machine.Timer#getTime()
      */
     public void waitUntil(long x) {
+		
+		long wakeTime = Machine.timer().getTime() + x;
+		
+		boolean intStatus = Machine.interrupt().disable();
 	
-	long wakeTime = Machine.timer().getTime() + x;
-	
-	boolean intStatus = Machine.interrupt().disable();
-
-	Lib.debug('t',"### Add " + KThread.currentThread().toString() + " to Alarm queue; wakeTime " + wakeTime);
-	waitAlarmThread.add(new ThreadTime(wakeTime,KThread.currentThread()));
-	KThread.sleep();
-	
-	Machine.interrupt().restore(intStatus);
+		Lib.debug('t',"### Add " + KThread.currentThread().toString() + " to Alarm queue; wakeTime " + wakeTime);
+		waitAlarmThread.add(new ThreadTime(wakeTime,KThread.currentThread()));
+		KThread.sleep();
+		
+		Machine.interrupt().restore(intStatus);
     }
     
     public static void selfTest() {

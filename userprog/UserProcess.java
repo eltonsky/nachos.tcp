@@ -3,6 +3,7 @@ package nachos.userprog;
 import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
+import nachos.vm.LazyLoader;
 
 import java.io.EOFException;
 import java.util.ArrayList;
@@ -79,16 +80,10 @@ public class UserProcess {
 		if (!load(name, args))
 		    return false;
 		
-		this.userThread = createUserThread();
+		this.userThread = new UThread(this);
 		this.userThread.setName(name).fork();
 	
 		return true;
-    }
-    
-    
-    public UThread createUserThread() {
-    	UThread userthread =  new UThread(this);
-    	return userthread;
     }
     
     
@@ -101,7 +96,7 @@ public class UserProcess {
     }
     
     public void printChildren(){
-    	Lib.debug(dbgProcess, "Pint children Map");
+    	Lib.debug(dbgProcess, "Print children Map");
     	
     	for(Integer k : childrenMap.keySet()){
     		Lib.debug(dbgProcess, "child " + k);
@@ -122,7 +117,7 @@ public class UserProcess {
     public void restoreState() {
     	Machine.processor().setPageTable(pageTable);
     	
-    	printPage(0, pageTable.keySet().size());
+    	//printPage(0, pageTable.keySet().size());
     }
 
     
@@ -196,7 +191,7 @@ public class UserProcess {
 
     
     /**
-     * Transfer data from this process's virtual memory to the specified array.
+     * Transfer data from this process's virtual memory to the specified array(phy mem).
      * This method handles address translation details. This method must
      * <i>not</i> destroy the current process if an error occurs, but instead
      * should return the number of bytes successfully copied (or zero if no
@@ -226,7 +221,7 @@ public class UserProcess {
 			lastVpReadLength = pageSize;
 		}
 		
-		Lib.debug(dbgProcess, "##elton## vaddr "+ vaddr + " offset " + offset + 
+		Lib.debug(dbgProcess, "vaddr "+ vaddr + " offset " + offset + 
 				" length " + length  +" firstVpn " + firstVpn + " firstVpOffset " + 
 				firstVpOffset + " lastVpn " + lastVpn + " lastVpReadLength " + lastVpReadLength);
 		
@@ -272,8 +267,6 @@ public class UserProcess {
      * @return	the number of bytes successfully transferred.
      */
     public int writeVirtualMemory(int vaddr, byte[] data) {
-    	
-    	Lib.debug(dbgProcess, "##elton## " + new String(data, 0, data.length));
     	
     	return writeVirtualMemory(vaddr, data, 0, data.length);
     }
@@ -370,6 +363,13 @@ public class UserProcess {
 		    return false;
 		}
 	
+		// use lazyLoader
+		if(useLazyLoader){
+			lazyLoader = new LazyLoader(coff);
+			
+			return true;
+		}
+		
 		// make sure the sections are contiguous and start at page 0
 		numPages = 0;
 		for (int s=0; s<coff.getNumSections(); s++) {
@@ -444,7 +444,7 @@ Lib.debug(dbgProcess, "initialPC "+ initialPC +" initialSP " + initialSP);
 		}
 
 Lib.debug(dbgProcess, "Finish Load");
-printPageTable();
+//printPageTable();
 		
 		return true;
     }
@@ -469,10 +469,10 @@ printPageTable();
 		    return false;
 		}
 		
-		Lib.debug(dbgProcess, "Stack numPages is " + numPages);
+		Lib.debug(dbgProcess, "numPages is " + numPages);
 		
 		int vpn = 0;
-		// load sections
+		// load sections:.text, .rdata, .data, .bss
 		for (int s=0; s<coff.getNumSections(); s++) {
 		    CoffSection section = coff.getSection(s);
 		    
@@ -490,6 +490,7 @@ printPageTable();
 		    }
 		}
 		
+		// stack
 		// if not allocated to numPages for section, allocate more here.
 		// for args
 		for(int j = vpn+1; j < numPages; j++){
@@ -759,7 +760,7 @@ printPageTable();
         	Lib.debug(dbgProcess, "argv" +i +" "+ argv[i] +", vaddr " + vaddr);        	
         }
         
-        printMemoryString(a_argv,1024);        
+        //printMemoryString(a_argv,1024);        
         
         if(filename == null || !filename.endsWith(".coff") || argc < 0){
                 return -1;
@@ -851,7 +852,7 @@ printChildren();
 
     	Lib.debug(dbgProcess, "free vaddr " + vaddr + " start vpn " + vpn);
     	Lib.debug(dbgProcess, "Before free");
-    	printPage(0, pageTable.keySet().size());
+    	//printPage(0, pageTable.keySet().size());
     	
     	// get list of vpn to be deallocated
     	List<Integer> lstVpn = allocatedSeg.get(vpn);
@@ -999,25 +1000,25 @@ printChildren();
      * @param	cause	the user exception that occurred.
      */
     public void handleException(int cause) {
-	Processor processor = Machine.processor();
-
-	switch (cause) {
-	case Processor.exceptionSyscall:
-	    int result = handleSyscall(processor.readRegister(Processor.regV0),
-				       processor.readRegister(Processor.regA0),
-				       processor.readRegister(Processor.regA1),
-				       processor.readRegister(Processor.regA2),
-				       processor.readRegister(Processor.regA3)
-				       );
-	    processor.writeRegister(Processor.regV0, result);
-	    processor.advancePC();
-	    break;				       
-				       
-	default:
-	    Lib.debug(dbgProcess, "Unexpected exception: " +
-		      Processor.exceptionNames[cause]);
-	    Lib.assertNotReached("Unexpected exception");
-	}
+		Processor processor = Machine.processor();
+	
+		switch (cause) {
+		case Processor.exceptionSyscall:
+		    int result = handleSyscall(processor.readRegister(Processor.regV0),
+					       processor.readRegister(Processor.regA0),
+					       processor.readRegister(Processor.regA1),
+					       processor.readRegister(Processor.regA2),
+					       processor.readRegister(Processor.regA3)
+					       );
+		    processor.writeRegister(Processor.regV0, result);
+		    processor.advancePC();
+		    break;				       
+					       
+		default:
+		    Lib.debug(dbgProcess, "Unexpected exception: " +
+			      Processor.exceptionNames[cause]);
+		    Lib.assertNotReached("Unexpected exception");
+		}
     }
 
     
@@ -1078,6 +1079,10 @@ printChildren();
     public static int currentPID = 0;
     public static int runningProcesses = 0;
     public static Lock pidLock = new Lock();
+    
+    // config to use lazyLoader
+    protected boolean useLazyLoader;
+    protected LazyLoader lazyLoader;
     
     private class FDTable {
     	OpenFile[] fdFile = new OpenFile[maxOpenFiles];

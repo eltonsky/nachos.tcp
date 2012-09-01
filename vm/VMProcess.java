@@ -16,8 +16,15 @@ public class VMProcess extends UserProcess {
 		super();
 		
 		tlbLock = new Lock();
+		pageLock = new Lock();
+		
+		super.useLazyLoader = true;
+		
+		pageReplacePolicy = new RandomReplacePage(Machine.numPhysPages,pageTable);
     }
 
+    private boolean intStat;
+    
     /**
      * Save the state of this process in preparation for a context switch.
      * Called by <tt>UThread.saveState()</tt>.
@@ -57,18 +64,22 @@ public class VMProcess extends UserProcess {
 			 int length) {
     	int rs = super.readVirtualMemory(vaddr,data,offset,length);
     	
+    	int firstVpn = Processor.pageFromAddress(vaddr);
+		int lastVpn = Processor.pageFromAddress(vaddr+length);
+		TLB tlb = Machine.processor().getTLB();
+		
     	//update TLB
-    	int vpn = Processor.pageFromAddress(vaddr);
-    	TLB tlb = Machine.processor().getTLB();
-    	TranslationEntry te = super.pageTable.get(vpn);
-
-    	te.used = true;
-    	
-    	tlbLock.acquire();
-    	
-    	tlb.set(-1, vpn, te);
-    	
-    	tlbLock.release();
+    	for(int i = firstVpn; i<=lastVpn;i++){
+	    	TranslationEntry te = super.pageTable.get(i);
+	
+	    	te.used = true;
+	    	
+	    	tlbLock.acquire();
+	    	
+	    	tlb.set(-1, i, te);
+	    	
+	    	tlbLock.release();
+    	}
     	
     	return rs;
     }
@@ -78,26 +89,25 @@ public class VMProcess extends UserProcess {
 			  int length) {
     	int rs = super.writeVirtualMemory(vaddr, data, offset,length);
     	
+    	int firstVpn = Processor.pageFromAddress(vaddr);
+		int lastVpn = Processor.pageFromAddress(vaddr+length);
+		TLB tlb = Machine.processor().getTLB();
+		
     	//update TLB
-    	int vpn = Machine.processor().pageFromAddress(vaddr);
-    	TLB tlb = Machine.processor().getTLB();
-    	TranslationEntry te = super.pageTable.get(vpn);
-    	
-    	te.used = true;
-    	te.dirty = true;
-    	
-    	tlbLock.acquire();
-    	
-    	tlb.set(-1, vpn, te);
-    	
-    	tlbLock.release();
+		for(int i = firstVpn; i<=lastVpn;i++){
+	    	TranslationEntry te = super.pageTable.get(i);
+	    	
+	    	te.used = true;
+	    	te.dirty = true;
+	    	
+	    	tlbLock.acquire();
+	    	
+	    	tlb.set(-1, i, te);
+	    	
+	    	tlbLock.release();
+		}
     	
     	return rs;
-    }
-    
-    public UThread createUserThread() {
-    	UThread userthread =  new UThread(this);
-    	return userthread;
     }
     
     /**
@@ -135,7 +145,16 @@ public class VMProcess extends UserProcess {
     }
     
     public void handleTLBMiss(int vaddr) {
+    	Lib.assertTrue(pageTable != null);
+    	
     	int vpn = Machine.processor().pageFromAddress(vaddr);
+    	
+    	// if page is not available, get it in
+    	if (!pageTable.containsKey(vpn)) {
+    		load_page(vpn);
+    		
+    		pageReplacePolicy.insert(this.getPID()+":"+vpn);
+    	}
     	
     	tlbLock.acquire();
     	
@@ -219,8 +238,42 @@ public class VMProcess extends UserProcess {
 		return 0;
     }
     
+    // load from coff OR swap
+    protected int load_page(int vpn) {
+    	// get space if full.
+    	if (pageTable.size() == Machine.numPhysPages) {
+    		int outVpn = Integer.parseInt(pageReplacePolicy.evict());
+    		
+        	// if page to swap out is dirty, write to swap    		
+    		if(pageTable.get(outVpn).dirty) {    			
+    			VMKernel.getSwap().writeToSwap(this.getPID(), outVpn, pageTable.get(outVpn));
+    		}
+    		
+    		pageTable.remove(outVpn);
+    	}
+    	
+    	// load target page
+    	// if code file (.text, .rdata, .data or .bss), load from coff
+    	if(lazyLoader.isInCoff(vpn)){
+    		pageTable.put(vpn,new TranslationEntry(vpn, UserKernel.allocatePage(), 
+    				true, lazyLoader.isReadOnly(vpn),false,false));
+    		
+    		lazyLoader.loadSection(vpn,pageTable.get(vpn).ppn);    		
+    	}
+    	// if not code, load from swap
+    	else {
+    		pageTable.put(vpn,new TranslationEntry(vpn, UserKernel.allocatePage(), 
+    				true, false,false,false));
+    		
+    		VMKernel.getSwap().readFromSwap(this.getPID(), vpn, pageTable.get(vpn).ppn);
+    	}
+    	
+    	return 0;
+    }
     
 	private Lock tlbLock;
+	private Lock pageLock;
+	private IReplacePolicy pageReplacePolicy;
     
     private static final int pageSize = Processor.pageSize;
     private static final char dbgProcess = 'a';
