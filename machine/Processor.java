@@ -51,12 +51,9 @@ public final class Processor {
 		mainMemory = new byte[pageSize * numPhysPages];
 	
 		if (usingTLB) {
-//		    translations = new TreeMap<Integer,TranslationEntry>();
-//		    for (int i=0; i<tlbSize; i++)
-//		    	translations.put(-1,new TranslationEntry());
-			
-			//tlb = new TLB("nachos.vm.InvertedPageTable","nachos.vm.RandomReplace");
-			tlb = new TLB(new InvertedPageTable(tlbSize), new RandomReplace(tlbSize));
+		    translations = new TreeMap<Integer,TranslationEntry>();
+		    for (int i=0; i<tlbSize; i++)
+		    	translations.put(i,null);
 		}
 		else {
 		    translations = null;
@@ -351,15 +348,13 @@ Lib.debug(dbgProcessor, "page table set");
 		}
 		// else, look through all TLB entries for matching vpn
 		else {
-//		    for (int i=0; i<tlbSize; i++) {
-//				if (translations.get(i).valid && translations.get(i).vpn == vpn) {
-//				    entry = translations.get(i);
-//				    break;
-//				}
-//		    }
+		    for (int i=0; i<tlbSize; i++) {
+				if (translations.get(i).valid && translations.get(i).vpn == vpn) {
+				    entry = translations.get(i);
+				    break;
+				}
+		    }
 		    
-			entry = tlb.get(-1,vpn);
-			
 		    if (entry == null) {
 				privilege.stats.numTLBMisses++;
 				Lib.debug(dbgProcessor, "\t\tTLB miss");
@@ -393,10 +388,7 @@ Lib.debug(dbgProcessor, "page table set");
 		return paddr;
     }
 
-    public TLB getTLB(){
-    	return tlb;
-    }
-    
+   
     /**
      * Read </i>size</i> (1, 2, or 4) bytes of virtual memory at <i>vaddr</i>,
      * and return the result.
@@ -504,8 +496,6 @@ Lib.debug(dbgProcessor, "page table set");
 		registers[regNextPC] = nextPC;
     }
 
-
-    private static TLB tlb;
     
     /** Caused by a syscall instruction. */
     public static final int exceptionSyscall = 0;

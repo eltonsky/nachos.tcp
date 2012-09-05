@@ -1,9 +1,6 @@
 package nachos.vm;
-
 import nachos.machine.*;
-import nachos.threads.*;
 import nachos.userprog.*;
-import nachos.vm.*;
 
 /**
  * A <tt>UserProcess</tt> that supports demand-paging.
@@ -15,15 +12,11 @@ public class VMProcess extends UserProcess {
     public VMProcess() {
 		super();
 		
-		tlbLock = new Lock();
-		pageLock = new Lock();
-		
 		super.useLazyLoader = true;
-		
-		pageReplacePolicy = new RandomReplacePage(Machine.numPhysPages,pageTable);
     }
-
-    private boolean intStat;
+    
+    
+    private TranslationEntry[] tlbStore = new TranslationEntry[Machine.processor().getTLBSize()];
     
     /**
      * Save the state of this process in preparation for a context switch.
@@ -32,15 +25,29 @@ public class VMProcess extends UserProcess {
     public void saveState() {
     	super.saveState();
     	
-    	Machine.processor().getTLB().invalidate();
+    	for(int i=0; i < Machine.processor().getTLBSize(); i++) {
+    		tlbStore[i] = Machine.processor().readTLBEntry(i);
+    		
+    		Machine.processor().writeTLBEntry(i, null);
+    	}
+    	
+    	// invalidate policy records.
+    	VMKernel.getTLB().invalidate();
     }
 
     /**
      * Restore the state of this process after a context switch. Called by
      * <tt>UThread.restoreState()</tt>.
      */
-    public void restoreState() {    	
-    	Machine.processor().getTLB().invalidate();
+    public void restoreState() { 
+    	for(int i=0; i < Machine.processor().getTLBSize(); i++) {    		
+    		Machine.processor().writeTLBEntry(i, tlbStore[i]);
+    		
+    		if(tlbStore[i] != null){
+    			// insert into policy records.
+    			VMKernel.getTLB().set(this.getPID(), tlbStore[i].vpn);
+    		}
+    	}
     }
 
     /**
@@ -50,7 +57,19 @@ public class VMProcess extends UserProcess {
      * @return	<tt>true</tt> if successful.
      */
     protected boolean loadSections() {
-	return super.loadSections();
+		if (numPages > Machine.processor().getNumPhysPages() ||
+				numPages > UserKernel.getFreePageNum()) {
+		    coff.close();
+		    Lib.debug(dbgProcess, "\tinsufficient physical memory or free memory.");
+		    return false;
+		}
+		
+		Lib.debug(dbgProcess, "numPages is " + numPages);
+		
+		// args : 1 page, only this page is phy allocated.
+		pageTable.put(numPages-1,new TranslationEntry(numPages-1, UserKernel.allocatePage(), true,false,false,false));
+		
+		return true;
     }
 
     /**
@@ -66,7 +85,7 @@ public class VMProcess extends UserProcess {
     	
     	int firstVpn = Processor.pageFromAddress(vaddr);
 		int lastVpn = Processor.pageFromAddress(vaddr+length);
-		TLB tlb = Machine.processor().getTLB();
+		TLB tlb = VMKernel.getTLB();
 		
     	//update TLB
     	for(int i = firstVpn; i<=lastVpn;i++){
@@ -74,11 +93,11 @@ public class VMProcess extends UserProcess {
 	
 	    	te.used = true;
 	    	
-	    	tlbLock.acquire();
+	    	VMKernel.getTLBLock().acquire();
 	    	
-	    	tlb.set(-1, i, te);
+	    	tlb.set(this.getPID(), i);
 	    	
-	    	tlbLock.release();
+	    	VMKernel.getTLBLock().release();
     	}
     	
     	return rs;
@@ -91,7 +110,7 @@ public class VMProcess extends UserProcess {
     	
     	int firstVpn = Processor.pageFromAddress(vaddr);
 		int lastVpn = Processor.pageFromAddress(vaddr+length);
-		TLB tlb = Machine.processor().getTLB();
+		TLB tlb = VMKernel.getTLB();
 		
     	//update TLB
 		for(int i = firstVpn; i<=lastVpn;i++){
@@ -100,11 +119,11 @@ public class VMProcess extends UserProcess {
 	    	te.used = true;
 	    	te.dirty = true;
 	    	
-	    	tlbLock.acquire();
+	    	VMKernel.getTLBLock().acquire();
 	    	
-	    	tlb.set(-1, i, te);
+	    	tlb.set(this.getPID(), i);
 	    	
-	    	tlbLock.release();
+	    	VMKernel.getTLBLock().release();
 		}
     	
     	return rs;
@@ -147,20 +166,25 @@ public class VMProcess extends UserProcess {
     public void handleTLBMiss(int vaddr) {
     	Lib.assertTrue(pageTable != null);
     	
-    	int vpn = Machine.processor().pageFromAddress(vaddr);
+    	int vpn = Processor.pageFromAddress(vaddr);
     	
     	// if page is not available, get it in
-    	if (!pageTable.containsKey(vpn)) {
+    	if (!pageTable.containsKey(vpn) || !pageTable.get(vpn).valid) {
+    		
+    		VMKernel.getPageLock().acquire();
+    		
     		load_page(vpn);
     		
-    		pageReplacePolicy.insert(this.getPID()+":"+vpn);
+    		VMKernel.getPageLock().release();
     	}
     	
-    	tlbLock.acquire();
+    	VMKernel.getTLBLock().acquire();
     	
-    	Machine.processor().getTLB().set(-1, vpn, pageTable.get(vpn));
+    	int index = VMKernel.getTLB().set(this.getPID(), vpn);
     	
-    	tlbLock.release();
+    	Machine.processor().writeTLBEntry(index, pageTable.get(vpn));
+    	
+    	VMKernel.getTLBLock().release();
     	
     	Lib.debug(dbgVM, "set vpn " + vpn);
     }
@@ -168,8 +192,7 @@ public class VMProcess extends UserProcess {
     
     protected int handleExec(int a_file, int argc, int a_argv){
         String filename = readVirtualMemoryString(a_file, 256);
-        byte[] b = new byte[256];
-        
+    
         String[] argv = new String[argc];
         
         Lib.debug(dbgProcess, "filename " + filename + " argc " + argc + ", a_argv " + a_argv);        
@@ -238,44 +261,69 @@ public class VMProcess extends UserProcess {
 		return 0;
     }
     
+    
     // load from coff OR swap
     protected int load_page(int vpn) {
-    	// get space if full.
-    	if (pageTable.size() == Machine.numPhysPages) {
-    		int outVpn = Integer.parseInt(pageReplacePolicy.evict());
+    	IPTPage pages = VMKernel.getIPTPage();
+    	SwapFile swap = VMKernel.getSwap();
+    	
+    	// if no more free page, swap! 
+    	if (VMKernel.getFreePageNum() == 0) {
+    		
+    		int outVpn = Integer.parseInt(pages.evict().split(":")[1]);
     		
         	// if page to swap out is dirty, write to swap    		
     		if(pageTable.get(outVpn).dirty) {    			
-    			VMKernel.getSwap().writeToSwap(this.getPID(), outVpn, pageTable.get(outVpn));
+    			swap.writeToSwap(this.getPID(), 
+    					pageTable.get(outVpn).vpn, pageTable.get(outVpn).ppn);
     		}
     		
     		pageTable.remove(outVpn);
+    		pages.remove(this.getPID()+":"+outVpn);
     	}
     	
+    	
     	// load target page
-    	// if code file (.text, .rdata, .data or .bss), load from coff
-    	if(lazyLoader.isInCoff(vpn)){
-    		pageTable.put(vpn,new TranslationEntry(vpn, UserKernel.allocatePage(), 
-    				true, lazyLoader.isReadOnly(vpn),false,false));
-    		
-    		lazyLoader.loadSection(vpn,pageTable.get(vpn).ppn);    		
-    	}
-    	// if not code, load from swap
-    	else {
+    	// if in swap (.data, stack, malloc)
+    	if(swap.contains(this.getPID(), vpn)){
     		pageTable.put(vpn,new TranslationEntry(vpn, UserKernel.allocatePage(), 
     				true, false,false,false));
     		
-    		VMKernel.getSwap().readFromSwap(this.getPID(), vpn, pageTable.get(vpn).ppn);
+    		swap.readFromSwap(this.getPID(), vpn, pageTable.get(vpn).ppn);
     	}
+    	// if this stack page doesn't exist yet, create it.
+    	else if(isStackPage(vpn)){
+    		pageTable.put(vpn,new TranslationEntry(vpn, UserKernel.allocatePage(), 
+    				true, false,false,false));
+        }
+    	// if code file (.text, .rdata, .data or .bss), load from coff 
+    	else if(lazyLoader.isInCoff(vpn)){
+    		pageTable.put(vpn,new TranslationEntry(vpn, UserKernel.allocatePage(), 
+    				true, lazyLoader.isReadOnly(vpn),false,false));
+    		
+    		lazyLoader.loadSection(vpn,pageTable.get(vpn).ppn);    	
+    		
+    	} else {
+    		Lib.assertNotReached("Can not find page, neither in coff OR swap OR stack. pid " 
+    			+ this.getPID() + " vpn " + vpn);
+    	} 
+
+		pages.set(this.getPID(), vpn, pageTable.get(vpn));
     	
     	return 0;
     }
     
-	private Lock tlbLock;
-	private Lock pageLock;
-	private IReplacePolicy pageReplacePolicy;
     
-    private static final int pageSize = Processor.pageSize;
+    // if this page is a stack page.
+    private boolean isStackPage(int vpn) {
+    	int last = this.initialSP/Processor.pageSize - 1;
+    	int first = last - this.stackPages;
+    	
+    	return (vpn >= first && vpn <= last);
+    }
+    
+    
     private static final char dbgProcess = 'a';
     private static final char dbgVM = 'v';
+    
 }

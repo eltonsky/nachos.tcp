@@ -362,13 +362,7 @@ public class UserProcess {
 		    Lib.debug(dbgProcess, "\tcoff load failed");
 		    return false;
 		}
-	
-		// use lazyLoader
-		if(useLazyLoader){
-			lazyLoader = new LazyLoader(coff);
-			
-			return true;
-		}
+		
 		
 		// make sure the sections are contiguous and start at page 0
 		numPages = 0;
@@ -490,7 +484,8 @@ Lib.debug(dbgProcess, "Finish Load");
 		    }
 		}
 		
-		// stack
+		// stack and args
+		//   8    +   1
 		// if not allocated to numPages for section, allocate more here.
 		// for args
 		for(int j = vpn+1; j < numPages; j++){
@@ -1058,7 +1053,7 @@ printChildren();
     protected final int stackPages = 8;
     
     private FDTable fd_table;
-    private int initialPC, initialSP;
+    protected int initialPC, initialSP;
     private int argc, argv;
     private int pid;
     protected int parentPID;

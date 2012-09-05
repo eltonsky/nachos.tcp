@@ -14,8 +14,16 @@ public class VMKernel extends UserKernel {
      */
     public VMKernel() {
     	super();
+
+	    tlb = new TLB("InvertedPageTable","RandomReplace");
     	
     	swap = SwapFile.getSwapFile();
+    	
+		tlbLock = new Lock();
+		
+		pageLock = new Lock();
+
+		pages =  new IPTPage();
     }
 
     /**
@@ -43,17 +51,46 @@ public class VMKernel extends UserKernel {
      * Terminate this kernel. Never returns.
      */
     public void terminate() {
-	super.terminate();
+    	swap.purge();
+    	
+    	pages.clear();
+    	
+    	super.terminate();
     }
     
     public static SwapFile getSwap(){
     	return swap;
     }
+    
+    public static TLB getTLB(){
+    	return tlb;
+    }
+    
+    public static Lock getTLBLock() {
+    	return tlbLock;
+    }
 
+    public static Lock getPageLock() {
+    	return pageLock;
+    }
+    
+    public static IPTPage getIPTPage(){
+    	return pages;
+    }
+    
     // dummy variables to make javac smarter
     private static VMProcess dummy1 = null;
 
     private static final char dbgVM = 'v';
     
     private static SwapFile swap;
+
+    private static TLB tlb;
+
+	private static IReplacePolicy pageReplacePolicy;
+    
+	private static Lock tlbLock;
+	private static Lock pageLock;
+	
+	private static IPTPage pages;
 }
