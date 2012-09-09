@@ -587,6 +587,9 @@ Lib.debug(dbgProcess, "Finish Load");
      */
     protected int handleOpen(int a0){
 	    String filename = readVirtualMemoryString(a0, 256);
+	    
+	    Lib.debug(dbgProcess, "filename is " + filename + " a0 is " + a0);
+	    
 	    if(filename == null){
 	    	return -1;
 	    }else{
@@ -1017,8 +1020,10 @@ printChildren();
     }
 
     
-    private int getPhysicAddress(int vpn, int offset){
+    protected int getPhysicAddress(int vpn, int offset){
     	Lib.assertTrue(pageTable.lastKey() >= vpn, "vpn "+vpn +" is out of bound.");
+    	
+    	
     	
     	int ppn = pageTable.get(vpn).ppn;
     	return ppn*pageSize + offset;

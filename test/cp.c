@@ -10,21 +10,21 @@ int main(int argc, char** argv)
 {
   int src, dst, amount;
 
-  if (argc!=3) {
-    printf("Usage: cp <src> <dst>\n");
-    return 1;
-  }
+//  if (argc!=3) {
+//    printf("Usage: cp <src> <dst>\n");
+//    return 1;
+//  }
 
-  src = open(argv[1]);
+  src = open(argv[0]);
   if (src==-1) {
-    printf("Unable to open %s\n", argv[1]);
+    printf("Unable to open %s\n", argv[0]);
     return 1;
   }
 
-  creat(argv[2]);
-  dst = open(argv[2]);
+  creat(argv[1]);
+  dst = open(argv[1]);
   if (dst==-1) {
-    printf("Unable to create %s\n", argv[2]);
+    printf("Unable to create %s\n", argv[1]);
     return 1;
   }
 

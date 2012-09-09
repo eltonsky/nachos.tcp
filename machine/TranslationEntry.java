@@ -26,14 +26,25 @@ public final class TranslationEntry {
      * @param	dirty		the dirty bit.
      */
     public TranslationEntry(int vpn, int ppn, boolean valid, boolean readOnly,
-			    boolean used, boolean dirty) {
+			    boolean used, boolean dirty, boolean executable) {
 		this.vpn = vpn;
 		this.ppn = ppn;
 		this.valid = valid;
 		this.readOnly = readOnly;
 		this.used = used;
 		this.dirty = dirty;
-    }       
+		this.executable = executable;
+    }
+    
+    public TranslationEntry(int vpn, int ppn, boolean valid, boolean readOnly,
+		    boolean used, boolean dirty) {
+	this.vpn = vpn;
+	this.ppn = ppn;
+	this.valid = valid;
+	this.readOnly = readOnly;
+	this.used = used;
+	this.dirty = dirty;
+}
 
     /**
      * Allocate a new translation entry, copying the contents of an existing
@@ -48,6 +59,7 @@ public final class TranslationEntry {
 	readOnly = entry.readOnly;
 	used = entry.used;
 	dirty = entry.dirty;
+	executable = entry.executable;
     }
 
     /** The virtual page number. */
@@ -78,4 +90,9 @@ public final class TranslationEntry {
      * user program.
      */
     public boolean dirty;
+    
+    /*
+     * This is used for page replacement. .text can not be swapped out while exec.
+     */
+    public boolean executable;
 }

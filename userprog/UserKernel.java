@@ -171,6 +171,6 @@ public class UserKernel extends ThreadedKernel {
     // dummy variables to make javac smarter
     private static Coff dummy1 = null;
     
-    private static SortedSet<Integer> freePageSet;
+    protected static SortedSet<Integer> freePageSet;
     private static Lock kPageLock;
 }

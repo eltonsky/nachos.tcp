@@ -140,6 +140,10 @@ Lib.debug(dbgCoffSection, "name " + name + " vaddr " + vaddr + " size " + size +
     public boolean isReadOnly() {
 	return readOnly;
     }
+    
+    public boolean isExecutable() {
+    	return executable;
+    }
 
     /**
      * Test whether this section is initialized. Loading a page from an

@@ -303,8 +303,8 @@ Lib.debug(dbgProcessor, "page table set");
      */
     private int translate(int vaddr, int size, boolean writing)
 	throws MipsException {
-		if (Lib.test(dbgProcessor))
-		    System.out.println("\ttranslate vaddr=0x" + Lib.toHexString(vaddr)
+		//if (Lib.test(dbgProcessor))
+		    Lib.debug(dbgProcessor, "\ttranslate vaddr=0x" + Lib.toHexString(vaddr) + " vaddr " + vaddr
 				       + (writing ? ", write" : ", read..."));
 	
 		// check alignment
@@ -418,6 +418,8 @@ Lib.debug(dbgProcessor, "page table set");
 		    System.out.println("\t\tvalue read=0x" +
 				       Lib.toHexString(value, size*2));
 		
+Lib.debug(dbgProcessor, "vaddr " + vaddr  + " size " + size + " value " + value);		
+		
 		return value;
     }
     
@@ -438,6 +440,8 @@ Lib.debug(dbgProcessor, "page table set");
 				       + Lib.toHexString(value, size*2));
 	
 		Lib.assertTrue(size==1 || size==2 || size==4);
+		
+Lib.debug(dbgProcessor, "vaddr " + vaddr  + " size " + size + " value " + value);		
 		
 		Lib.bytesFromInt(mainMemory, translate(vaddr, size, true), size,
 				 value);
