@@ -13,7 +13,7 @@ public class NetProcess extends VMProcess {
      * Allocate a new process.
      */
     public NetProcess() {
-	super();
+    	super();
     }
 
     private static final int
@@ -38,9 +38,9 @@ public class NetProcess extends VMProcess {
      * @return	the value to be returned to the user.
      */
     public int handleSyscall(int syscall, int a0, int a1, int a2, int a3) {
-	switch (syscall) {
-	default:
-	    return super.handleSyscall(syscall, a0, a1, a2, a3);
-	}
+		switch (syscall) {
+		default:
+		    return super.handleSyscall(syscall, a0, a1, a2, a3);
+		}
     }
 }

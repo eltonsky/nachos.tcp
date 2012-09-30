@@ -12,9 +12,9 @@ public class SynchList {
      * Allocate a new synchronized queue.
      */
     public SynchList() {
-	list = new LinkedList<Object>();
-	lock = new Lock();
-	listEmpty = new Condition(lock);
+		list = new LinkedList<Object>();
+		lock = new Lock();
+		listEmpty = new Condition(lock);
     }
 
     /**
@@ -24,12 +24,12 @@ public class SynchList {
      * @param	o	the object to add. Must not be <tt>null</tt>.
      */
     public void add(Object o) {
-	Lib.assertTrue(o != null);
-	
-	lock.acquire();
-	list.add(o);
-	listEmpty.wake();
-	lock.release();
+		Lib.assertTrue(o != null);
+		
+		lock.acquire();
+		list.add(o);
+		listEmpty.wake();
+		lock.release();
     }
 
     /**
@@ -39,15 +39,15 @@ public class SynchList {
      * @return	the element removed from the front of the queue.
      */
     public Object removeFirst() {
-	Object o;
-
-	lock.acquire();
-	while (list.isEmpty())
-	    listEmpty.sleep();
-	o = list.removeFirst();
-	lock.release();
-
-	return o;
+		Object o;
+	
+		lock.acquire();
+		while (list.isEmpty())
+		    listEmpty.sleep();
+		o = list.removeFirst();
+		lock.release();
+	
+		return o;
     }
 
     private static class PingTest implements Runnable {

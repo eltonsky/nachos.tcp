@@ -22,30 +22,31 @@ public class PostOffice {
      * "postal worker" thread.
      */
     public PostOffice() {
-	messageReceived = new Semaphore(0);
-	messageSent = new Semaphore(0);
-	sendLock = new Lock();
-
-	queues = new SynchList[MailMessage.portLimit];
-	for (int i=0; i<queues.length; i++)
-	    queues[i] = new SynchList();
-
-	Runnable receiveHandler = new Runnable() {
-	    public void run() { receiveInterrupt(); }
-	};
-	Runnable sendHandler = new Runnable() {
-	    public void run() { sendInterrupt(); }
-	};
-	Machine.networkLink().setInterruptHandlers(receiveHandler,
-						   sendHandler);
-
-	KThread t = new KThread(new Runnable() {
-		public void run() { postalDelivery(); }
-	    });
-
-	t.fork();
+		messageReceived = new Semaphore(0);
+		messageSent = new Semaphore(0);
+		sendLock = new Lock();
+	
+		queues = new SynchList[MailMessage.portLimit];
+		for (int i=0; i<queues.length; i++)
+		    queues[i] = new SynchList();
+	
+		Runnable receiveHandler = new Runnable() {
+		    public void run() { receiveInterrupt(); }
+		};
+		Runnable sendHandler = new Runnable() {
+		    public void run() { sendInterrupt(); }
+		};
+		Machine.networkLink().setInterruptHandlers(receiveHandler,
+							   sendHandler);
+	
+		KThread t = new KThread(new Runnable() {
+			public void run() { postalDelivery(); }
+		    });
+	
+		t.fork();
     }
 
+    
     /**
      * Retrieve a message on the specified port, waiting if necessary.
      *
@@ -54,76 +55,93 @@ public class PostOffice {
      * @return	the message received.
      */
     public MailMessage receive(int port) {
-	Lib.assertTrue(port >= 0 && port < queues.length);
-
-	Lib.debug(dbgNet, "waiting for mail on port " + port);
-
-	MailMessage mail = (MailMessage) queues[port].removeFirst();
-
-	if (Lib.test(dbgNet))
-	    System.out.println("got mail on port " + port + ": " + mail);
-
-	return mail;
+		Lib.assertTrue(port >= 0 && port < queues.length);
+	
+Lib.debug(dbgNet, "&& waiting for mail on port " + port);
+	
+		MailMessage mail = (MailMessage) queues[port].removeFirst();
+	
+//		if (Lib.test(dbgNet))
+		    System.out.println("&& got mail on port " + port + ": " + mail);
+	
+		return mail;
     }
+    
 
     /**
      * Wait for incoming messages, and then put them in the correct mailbox.
      */
     private void postalDelivery() {
-	while (true) {
-	    messageReceived.P();
-
-	    Packet p = Machine.networkLink().receive();
-
-	    MailMessage mail;
-
-	    try {
-		mail = new MailMessage(p);
-	    }
-	    catch (MalformedPacketException e) {
-		continue;
-	    }
-
-	    if (Lib.test(dbgNet))
-		System.out.println("delivering mail to port " + mail.dstPort
-				   + ": " + mail);
-
-	    // atomically add message to the mailbox and wake a waiting thread
-	    queues[mail.dstPort].add(mail);
-	}
+		while (true) {
+			
+		    messageReceived.P();
+		    
+Lib.debug(dbgNet, "&& messageReceived.P()");  		  
+	
+		    Packet p = Machine.networkLink().receive();
+	
+		    MailMessage mail;
+	
+		    try {
+		    	mail = new MailMessage(p);
+		    }
+		    catch (MalformedPacketException e) {
+		    	continue;
+		    }
+	
+		    //if (Lib.test(dbgNet))
+			System.out.println("&& delivering mail to port " + mail.dstPort
+					   + ": " + mail);
+	
+		    // atomically add message to the mailbox and wake a waiting thread
+		    queues[mail.dstPort].add(mail);
+		}
     }
 
+    
     /**
      * Called when a packet has arrived and can be dequeued from the network
      * link.
      */
     private void receiveInterrupt() {
-	messageReceived.V();
+    	
+    	messageReceived.V();
+    	
+Lib.debug(dbgNet, "&& messageReceived.V()");    	
     }
 
+    
     /**
      * Send a message to a mailbox on a remote machine.
      */
     public void send(MailMessage mail) {
-	if (Lib.test(dbgNet))
-	    System.out.println("sending mail: " + mail);
-
-	sendLock.acquire();
-
-	Machine.networkLink().send(mail.packet);
-	messageSent.P();
-
-	sendLock.release();
+		//if (Lib.test(dbgNet))
+		    System.out.println("&& sending mail: " + mail);
+	
+		sendLock.acquire();
+	
+		Machine.networkLink().send(mail.packet);
+		messageSent.P();
+	
+Lib.debug(dbgNet, "&& messageSent.P()");		
+		
+		sendLock.release();
     }
 
+    
     /**
      * Called when a packet has been sent and another can be queued to the
      * network link. Note that this is called even if the previous packet was
      * dropped.
      */
     private void sendInterrupt() {
-	messageSent.V();
+    	
+    	messageSent.V();
+    	
+Lib.debug(dbgNet, "&& messageSent.V()");    	
+    	
     }
+    
 
     private SynchList[] queues;
     private Semaphore messageReceived;	// V'd when a message can be dequeued

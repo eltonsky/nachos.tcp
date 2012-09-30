@@ -71,56 +71,56 @@ public class NetworkLink {
      * 				machine.
      */
     public NetworkLink(Privilege privilege) {
-	System.out.print(" network");
-
-	this.privilege = privilege;
-
-	try {
-	    localHost = InetAddress.getLocalHost();
-	}
-	catch (UnknownHostException e) {
-	    localHost = null;
-	}
-
-	Lib.assertTrue(localHost != null);
-
-	reliability = Config.getDouble("NetworkLink.reliability");
-	Lib.assertTrue(reliability > 0 && reliability <= 1.0);
-
-	socket = null;
-
-	for (linkAddress=0;linkAddress<Packet.linkAddressLimit;linkAddress++) {
-	    try {
-		socket = new DatagramSocket(portBase + linkAddress, localHost);
-		break;
-	    }
-	    catch (SocketException e) {
-	    }
-	}
-
-	if (socket == null) {
-	    System.out.println("");
-	    System.out.println("Unable to acquire a link address!");
-	    Lib.assertNotReached();
-	}
-
-	System.out.print("(" + linkAddress + ")");
-
-	receiveInterrupt = new Runnable() {
-		public void run() { receiveInterrupt(); }
-	    };
-
-	sendInterrupt = new Runnable() {
-		public void run() { sendInterrupt(); }
-	    };		
+		System.out.print(" network");
 	
-	scheduleReceiveInterrupt();
-
-	Thread receiveThread = new Thread(new Runnable() {
-		public void run() { receiveLoop(); }
-	    });
-
-	receiveThread.start();
+		this.privilege = privilege;
+	
+		try {
+		    localHost = InetAddress.getLocalHost();
+		}
+		catch (UnknownHostException e) {
+		    localHost = null;
+		}
+	
+		Lib.assertTrue(localHost != null);
+	
+		reliability = Config.getDouble("NetworkLink.reliability");
+		Lib.assertTrue(reliability > 0 && reliability <= 1.0);
+	
+		socket = null;
+	
+		for (linkAddress=0;linkAddress<Packet.linkAddressLimit;linkAddress++) {
+		    try {
+			socket = new DatagramSocket(portBase + linkAddress, localHost);
+			break;
+		    }
+		    catch (SocketException e) {
+		    }
+		}
+	
+		if (socket == null) {
+		    System.out.println("");
+		    System.out.println("Unable to acquire a link address!");
+		    Lib.assertNotReached();
+		}
+	
+		System.out.print("(" + linkAddress + ")");
+	
+		receiveInterrupt = new Runnable() {
+			public void run() { receiveInterrupt(); }
+		    };
+	
+		sendInterrupt = new Runnable() {
+			public void run() { sendInterrupt(); }
+		    };		
+		
+		scheduleReceiveInterrupt();
+	
+		Thread receiveThread = new Thread(new Runnable() {
+			public void run() { receiveLoop(); }
+		    });
+	
+		receiveThread.start();
     }
 
     /**
@@ -151,40 +151,42 @@ public class NetworkLink {
      */
     public void setInterruptHandlers(Runnable receiveInterruptHandler,
 				     Runnable sendInterruptHandler) {
-	this.receiveInterruptHandler = receiveInterruptHandler;
-	this.sendInterruptHandler = sendInterruptHandler;
+		this.receiveInterruptHandler = receiveInterruptHandler;
+		this.sendInterruptHandler = sendInterruptHandler;
     }
 
+    
     private void scheduleReceiveInterrupt() {
-	privilege.interrupt.schedule(Stats.NetworkTime, "network recv",
-				     receiveInterrupt);
+		privilege.interrupt.schedule(Stats.NetworkTime, "network recv",
+					     receiveInterrupt);
     }
 
+    
     private synchronized void receiveInterrupt() {
-	Lib.assertTrue(incomingPacket == null);
-
-	if (incomingBytes != null) {
-	    if (Machine.autoGrader().canReceivePacket(privilege)) {
-		try {
-		    incomingPacket = new Packet(incomingBytes);
-
-		    privilege.stats.numPacketsReceived++;
+		Lib.assertTrue(incomingPacket == null);
+	
+		if (incomingBytes != null) {
+		    if (Machine.autoGrader().canReceivePacket(privilege)) {
+				try {
+				    incomingPacket = new Packet(incomingBytes);
+		
+				    privilege.stats.numPacketsReceived++;
+				}
+				catch (MalformedPacketException e) {
+				}
+		    }
+	
+		    incomingBytes = null;
+		    notify();
+	
+		    if (incomingPacket == null)
+		    	scheduleReceiveInterrupt();
+		    else if (receiveInterruptHandler != null)
+		    	receiveInterruptHandler.run();
 		}
-		catch (MalformedPacketException e) {
+		else {
+		    scheduleReceiveInterrupt();
 		}
-	    }
-
-	    incomingBytes = null;
-	    notify();
-
-	    if (incomingPacket == null)
-		scheduleReceiveInterrupt();
-	    else if (receiveInterruptHandler != null)
-		receiveInterruptHandler.run();
-	}
-	else {
-	    scheduleReceiveInterrupt();
-	}
     }
 
     /**
@@ -194,87 +196,87 @@ public class NetworkLink {
      * 		available.
      */
     public Packet receive() {
-	Packet p = incomingPacket;
+		Packet p = incomingPacket;
+		
+		if (incomingPacket != null) {
+		    incomingPacket = null;
+		    scheduleReceiveInterrupt();
+		}
 	
-	if (incomingPacket != null) {
-	    incomingPacket = null;
-	    scheduleReceiveInterrupt();
-	}
-
-	return p;
+		return p;
     }
 
     private void receiveLoop() {
-	while (true) {
-	    synchronized(this) {
-		while (incomingBytes != null) {
-		    try {
-			wait();
+		while (true) {
+		    synchronized(this) {
+				while (incomingBytes != null) {
+				    try {
+				    	wait();
+				    }
+				    catch (InterruptedException e) {
+				    }
+				}
 		    }
-		    catch (InterruptedException e) {
+	
+		    byte[] packetBytes;
+	
+		    try {
+				byte[] buffer = new byte[Packet.maxPacketLength];
+		
+				DatagramPacket dp = new DatagramPacket(buffer, buffer.length);
+				
+				socket.receive(dp);
+		
+				packetBytes = new byte[dp.getLength()];
+		
+				System.arraycopy(buffer,0, packetBytes,0, packetBytes.length);
+		    }
+		    catch (IOException e) {
+		    	return;
+		    }
+	
+		    synchronized(this) {
+		    	incomingBytes = packetBytes;
 		    }
 		}
-	    }
-
-	    byte[] packetBytes;
-
-	    try {
-		byte[] buffer = new byte[Packet.maxPacketLength];
-
-		DatagramPacket dp = new DatagramPacket(buffer, buffer.length);
-		
-		socket.receive(dp);
-
-		packetBytes = new byte[dp.getLength()];
-
-		System.arraycopy(buffer,0, packetBytes,0, packetBytes.length);
-	    }
-	    catch (IOException e) {
-		return;
-	    }
-
-	    synchronized(this) {
-		incomingBytes = packetBytes;
-	    }
-	}
     }		
     
     private void scheduleSendInterrupt() {
-	privilege.interrupt.schedule(Stats.NetworkTime, "network send",
-				     sendInterrupt);
+		privilege.interrupt.schedule(Stats.NetworkTime, "network send",
+					     sendInterrupt);
     }
 
     private void sendInterrupt() {
-	Lib.assertTrue(outgoingPacket != null);
-
-	// randomly drop packets, according to its reliability
-	if (Machine.autoGrader().canSendPacket(privilege) &&
-	    Lib.random() <= reliability) {
-	    // ok, no drop
-	    privilege.doPrivileged(new Runnable() {
-		    public void run() { sendPacket(); }
-		});
-	}
-	else {
-	    outgoingPacket = null;
-	}
-
-	if (sendInterruptHandler != null)
-	    sendInterruptHandler.run();
+		Lib.assertTrue(outgoingPacket != null);
+	
+		// randomly drop packets, according to its reliability
+		if (Machine.autoGrader().canSendPacket(privilege) &&
+		    Lib.random() <= reliability) {
+		    // ok, no drop
+		    privilege.doPrivileged(new Runnable() {
+			    public void run() { sendPacket(); }
+			});
+		}
+		else {
+		    outgoingPacket = null;
+		}
+	
+		if (sendInterruptHandler != null)
+		    sendInterruptHandler.run();
     }
 
     private void sendPacket() {
-	Packet p = outgoingPacket;
-	outgoingPacket = null;
+		Packet p = outgoingPacket;
+		outgoingPacket = null;
+		
+		try {
+		    socket.send(new DatagramPacket(p.packetBytes, p.packetBytes.length,
+						   localHost, portBase+p.dstLink));
 	
-	try {
-	    socket.send(new DatagramPacket(p.packetBytes, p.packetBytes.length,
-					   localHost, portBase+p.dstLink));
-
-	    privilege.stats.numPacketsSent++;
-	}
-	catch (IOException e) {
-	}
+		    privilege.stats.numPacketsSent++;
+		}
+		catch (IOException e) {
+		}
     }
 
     /**
@@ -284,10 +286,13 @@ public class NetworkLink {
      * @param	pkt	the packet to send.
      */       
     public void send(Packet pkt) {
-	if (outgoingPacket == null)
-	    scheduleSendInterrupt();
-	
-	outgoingPacket = pkt;
+    	
+Lib.debug('n', "&& outgoingPacket = " + outgoingPacket + " , pkt = " + pkt.toString());
+    	
+		if (outgoingPacket == null)
+		    scheduleSendInterrupt();
+		
+		outgoingPacket = pkt;
     }
 
     private static final int hash;
